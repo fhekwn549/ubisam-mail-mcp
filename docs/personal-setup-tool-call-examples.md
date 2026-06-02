@@ -4,6 +4,11 @@
 [docs/examples/personal-setup](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup) 예시 파일을 기준으로,
 실제로 MCP tool에 넣을 수 있는 호출 예문을 모아둔 문서다.
 
+검증 상태:
+- `2026-06-02` 임시 DB/임시 다운로드 경로 기준 스모크 테스트 완료
+- 검증 완료 범위: `config_status`, `create_signature_profile`, `create_greeting_template`, `create_closing_template`, `create_signature`, `preview_signature`, `preview_closing_signature`, `create_draft`, `get_draft`
+- 제외 범위: 실제 SMTP 발송, 실제 IMAP 업로드, 실계정 수신 확인
+
 전제:
 - 예시 JSON 4개를 먼저 본인 정보로 수정
 - `signature-profile.example.json`의 `logo_image_path`를 실제 로컬 절대경로로 수정

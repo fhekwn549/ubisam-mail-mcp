@@ -18,6 +18,9 @@
 - logo asset: [logo-color.png](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png)
 - tool 호출 예문: [personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)
 
+검증 메모:
+- 위 `tool 호출 예문` 문서의 주요 예문은 `2026-06-02` 임시 환경 스모크 테스트로 검증했다.
+
 이 예시 파일들은 현재 사용 중인 서명 레이아웃을 기준으로 익명화한 샘플이다.
 - 한글 이름: `홍길동`
 - 영문 이름: `John Doe`
