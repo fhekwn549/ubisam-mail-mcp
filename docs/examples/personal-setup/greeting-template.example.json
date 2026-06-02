@@ -1,0 +1,6 @@
+{
+  "name": "기본 인삿말",
+  "text_template": "안녕하십니까.\n{{department}} {{team}} {{display_name}} {{position}}입니다.",
+  "html_template": "<p>안녕하십니까.</p><p>{{department}} {{team}} {{display_name}} {{position}}입니다.</p>",
+  "is_default": true
+}

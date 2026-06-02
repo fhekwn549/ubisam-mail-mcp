@@ -1,0 +1,18 @@
+{
+  "name": "홍길동 기본 프로필",
+  "fields": {
+    "display_name": "홍길동",
+    "english_name": "John Doe",
+    "hanja_name": "洪吉童",
+    "department": "로봇자동화사업부",
+    "team": "로봇팀",
+    "position": "사원",
+    "division_english": "Robot Automation",
+    "job_title_english": "Software Engineer",
+    "office_phone": "02-1234-5678",
+    "mobile": "010-1234-5678",
+    "email": "hong.gildong@ubisam.com"
+  },
+  "logo_image_path": "/absolute/path/to/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png",
+  "is_default": true
+}

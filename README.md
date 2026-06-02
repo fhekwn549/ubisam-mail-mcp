@@ -178,6 +178,10 @@ env = { UBISAM_ENV_FILE = "/absolute/path/to/ubisam-mail-mcp/.env" }
 
 ## 권장 agent 흐름 / 튜토리얼
 
+개인 초기 설정 문서:
+- [docs/personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md)
+- [docs/personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)
+
 1. `create_greeting_template`로 인삿말 템플릿 저장
 2. `create_signature_profile`로 이름/부서/연락처/로고 프로필 저장
 3. `create_closing_template`로 맺음말 템플릿 저장

@@ -1,0 +1,7 @@
+{
+  "name": "기본 footer html",
+  "text_template": "{{display_name}} {{position}} / {{english_name}} / {{hanja_name}}\n{{department}} / {{division_english}} / {{job_title_english}}\nt {{office_phone}}  m {{mobile}}  e {{email}}",
+  "html_template": "<hr style=\"border:none;border-top:1px solid #cfcfcf;margin:0 0 14px 0;\"><div style=\"font-family:'Malgun Gothic',sans-serif;color:#7c7c7c;\">  <div style=\"font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;display:flex;align-items:flex-end;gap:14px;\">    <span style=\"display:inline-flex;align-items:flex-end;line-height:1;\">{{company_logo_img}}</span>    <span style=\"display:inline-block;line-height:1;transform:translateY(-4px);\">{{display_name}} {{position}} / {{english_name}} / {{hanja_name}}</span>  </div>  <div style=\"margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;\">{{department}} / {{division_english}} / {{job_title_english}}</div>  <div style=\"margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;\">    <strong style=\"color:#222;\">t</strong> {{office_phone}} &nbsp;&nbsp;    <strong style=\"color:#222;\">m</strong> {{mobile}} &nbsp;&nbsp;    <strong style=\"color:#222;\">e</strong> {{email}}  </div></div>",
+  "mode": "closing_only",
+  "is_default": true
+}

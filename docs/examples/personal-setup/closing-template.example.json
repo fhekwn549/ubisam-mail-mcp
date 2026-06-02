@@ -1,0 +1,6 @@
+{
+  "name": "기본 맺음말",
+  "text_template": "확인 부탁드립니다.\n\n감사합니다.",
+  "html_template": "<p>확인 부탁드립니다.</p><p>감사합니다.</p>",
+  "is_default": true
+}
