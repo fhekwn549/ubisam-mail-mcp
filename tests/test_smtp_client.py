@@ -3,9 +3,9 @@ from __future__ import annotations
 import smtplib
 from pathlib import Path
 
-from hanbiro_mail_mcp.config import AppConfig
-from hanbiro_mail_mcp.models import MessageDraft
-from hanbiro_mail_mcp.smtp_client import SmtpMailSender, _close_smtp_session, _smtp_login
+from ubisam_mail_mcp.config import AppConfig
+from ubisam_mail_mcp.models import MessageDraft
+from ubisam_mail_mcp.smtp_client import SmtpMailSender, _close_smtp_session, _smtp_login
 
 
 class FakeSmtpBase:
@@ -136,7 +136,7 @@ def test_close_smtp_session_accepts_503_and_closes():
 
 def test_send_tls_tolerates_503_on_quit(monkeypatch):
     FakeSmtpSsl.instances.clear()
-    monkeypatch.setattr("hanbiro_mail_mcp.smtp_client._SmtpSslWithServername", FakeSmtpSsl)
+    monkeypatch.setattr("ubisam_mail_mcp.smtp_client._SmtpSslWithServername", FakeSmtpSsl)
     sender = SmtpMailSender(make_config(use_tls=True, use_starttls=False))
 
     sender.send(make_draft())

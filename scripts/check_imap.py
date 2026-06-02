@@ -81,12 +81,12 @@ def main() -> int:
         best = successful[0]
         if best.mode == "993/SSL":
             print('Use these env vars:')
-            print('export HANBIRO_IMAP_PORT="993"')
-            print('export HANBIRO_IMAP_USE_TLS="true"')
+            print('export UBISAM_IMAP_PORT="993"')
+            print('export UBISAM_IMAP_USE_TLS="true"')
         else:
             print('Use these env vars:')
-            print('export HANBIRO_IMAP_PORT="143"')
-            print('export HANBIRO_IMAP_USE_TLS="false"')
+            print('export UBISAM_IMAP_PORT="143"')
+            print('export UBISAM_IMAP_USE_TLS="false"')
         return 0
 
     print("No IMAP mode succeeded. Check host, username/password, OTP/app-password policy, or company network restrictions.")

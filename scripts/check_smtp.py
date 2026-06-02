@@ -93,14 +93,14 @@ def main() -> int:
         best = successful[0]
         if best.mode == "587/STARTTLS":
             print('Use these env vars:')
-            print('export HANBIRO_SMTP_PORT="587"')
-            print('export HANBIRO_SMTP_USE_STARTTLS="true"')
-            print('export HANBIRO_SMTP_USE_TLS="false"')
+            print('export UBISAM_SMTP_PORT="587"')
+            print('export UBISAM_SMTP_USE_STARTTLS="true"')
+            print('export UBISAM_SMTP_USE_TLS="false"')
         else:
             print('Use these env vars:')
-            print('export HANBIRO_SMTP_PORT="465"')
-            print('export HANBIRO_SMTP_USE_STARTTLS="false"')
-            print('export HANBIRO_SMTP_USE_TLS="true"')
+            print('export UBISAM_SMTP_PORT="465"')
+            print('export UBISAM_SMTP_USE_STARTTLS="false"')
+            print('export UBISAM_SMTP_USE_TLS="true"')
         return 0
 
     print("No SMTP mode succeeded. Check host, username/password, OTP/app-password policy, or company network restrictions.")

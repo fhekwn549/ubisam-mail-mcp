@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from email.message import EmailMessage
 
-from hanbiro_mail_mcp.imap_client import (
+from ubisam_mail_mcp.imap_client import (
     _decode_header_value,
     _extract_html_body,
     _extract_text_body,

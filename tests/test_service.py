@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from hanbiro_mail_mcp.config import AppConfig
-from hanbiro_mail_mcp.repository import DraftRepository
-from hanbiro_mail_mcp.service import MailService
+from ubisam_mail_mcp.config import AppConfig
+from ubisam_mail_mcp.repository import DraftRepository
+from ubisam_mail_mcp.service import MailService
 
 
 class FakeSender:

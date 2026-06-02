@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hanbiro_mail_mcp.config import AppConfig
+from ubisam_mail_mcp.config import AppConfig
 
 
 def test_imap_defaults_follow_smtp_values(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("HANBIRO_SMTP_HOST", "mail.ubisam.com")
-    monkeypatch.setenv("HANBIRO_SMTP_USERNAME", "user@ubisam.com")
-    monkeypatch.setenv("HANBIRO_SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("UBISAM_SMTP_HOST", "mail.ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_USERNAME", "user@ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_PASSWORD", "secret")
 
     config = AppConfig.from_env()
 
@@ -21,18 +21,18 @@ def test_imap_defaults_follow_smtp_values(monkeypatch, tmp_path):
     assert config.imap_use_tls is True
     assert config.smtp_tls_servername == "mail.ubisam.com"
     assert config.imap_tls_servername == "mail.ubisam.com"
-    assert config.sqlite_path == Path(tmp_path) / ".local" / "share" / "hanbiro-mail-mcp" / "mail.db"
+    assert config.sqlite_path == Path(tmp_path) / ".local" / "share" / "ubisam-mail-mcp" / "mail.db"
 
 
 def test_imap_env_overrides(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("HANBIRO_IMAP_HOST", "mail.example.com")
-    monkeypatch.setenv("HANBIRO_IMAP_PORT", "143")
-    monkeypatch.setenv("HANBIRO_IMAP_USERNAME", "imap-user@example.com")
-    monkeypatch.setenv("HANBIRO_IMAP_PASSWORD", "imap-pass")
-    monkeypatch.setenv("HANBIRO_IMAP_USE_TLS", "false")
-    monkeypatch.setenv("HANBIRO_SMTP_TLS_SERVERNAME", "smtp-cert.example.com")
-    monkeypatch.setenv("HANBIRO_IMAP_TLS_SERVERNAME", "imap-cert.example.com")
+    monkeypatch.setenv("UBISAM_IMAP_HOST", "mail.example.com")
+    monkeypatch.setenv("UBISAM_IMAP_PORT", "143")
+    monkeypatch.setenv("UBISAM_IMAP_USERNAME", "imap-user@example.com")
+    monkeypatch.setenv("UBISAM_IMAP_PASSWORD", "imap-pass")
+    monkeypatch.setenv("UBISAM_IMAP_USE_TLS", "false")
+    monkeypatch.setenv("UBISAM_SMTP_TLS_SERVERNAME", "smtp-cert.example.com")
+    monkeypatch.setenv("UBISAM_IMAP_TLS_SERVERNAME", "imap-cert.example.com")
 
     config = AppConfig.from_env()
 
@@ -52,18 +52,18 @@ def test_dotenv_loads_when_process_env_is_missing(monkeypatch, tmp_path):
     env_file.write_text(
         "\n".join(
             [
-                'HANBIRO_SMTP_HOST="ubisam.hanbiro.net"',
-                'HANBIRO_SMTP_PORT="465"',
-                'HANBIRO_SMTP_USERNAME="user@ubisam.com"',
-                'HANBIRO_SMTP_PASSWORD="secret"',
-                'HANBIRO_DEFAULT_FROM="user@ubisam.com"',
-                'HANBIRO_SMTP_USE_STARTTLS="false"',
-                'HANBIRO_SMTP_USE_TLS="true"',
-                'HANBIRO_IMAP_HOST="ubisam.hanbiro.net"',
-                'HANBIRO_IMAP_PORT="993"',
-                'HANBIRO_IMAP_USERNAME="user@ubisam.com"',
-                'HANBIRO_IMAP_PASSWORD="secret"',
-                'HANBIRO_IMAP_USE_TLS="true"',
+                'UBISAM_SMTP_HOST="ubisam.hanbiro.net"',
+                'UBISAM_SMTP_PORT="465"',
+                'UBISAM_SMTP_USERNAME="user@ubisam.com"',
+                'UBISAM_SMTP_PASSWORD="secret"',
+                'UBISAM_DEFAULT_FROM="user@ubisam.com"',
+                'UBISAM_SMTP_USE_STARTTLS="false"',
+                'UBISAM_SMTP_USE_TLS="true"',
+                'UBISAM_IMAP_HOST="ubisam.hanbiro.net"',
+                'UBISAM_IMAP_PORT="993"',
+                'UBISAM_IMAP_USERNAME="user@ubisam.com"',
+                'UBISAM_IMAP_PASSWORD="secret"',
+                'UBISAM_IMAP_USE_TLS="true"',
             ]
         ),
         encoding="utf-8",
@@ -82,8 +82,8 @@ def test_dotenv_loads_when_process_env_is_missing(monkeypatch, tmp_path):
 def test_process_env_overrides_dotenv(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     env_file = tmp_path / ".env"
-    env_file.write_text('HANBIRO_SMTP_USERNAME="dotenv@ubisam.com"\n', encoding="utf-8")
-    monkeypatch.setenv("HANBIRO_SMTP_USERNAME", "env@ubisam.com")
+    env_file.write_text('UBISAM_SMTP_USERNAME="dotenv@ubisam.com"\n', encoding="utf-8")
+    monkeypatch.setenv("UBISAM_SMTP_USERNAME", "env@ubisam.com")
 
     config = AppConfig.from_env()
 
