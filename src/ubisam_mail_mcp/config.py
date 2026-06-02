@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ class AppConfig:
     smtp_password: str
     smtp_use_tls: bool
     smtp_use_starttls: bool
+    smtp_debug: bool
     smtp_tls_servername: str
     imap_host: str
     imap_port: int
@@ -21,13 +23,18 @@ class AppConfig:
     imap_use_tls: bool
     imap_tls_servername: str
     default_from_address: str
+    default_from_name: str
     sqlite_path: Path
+    attachment_download_dir: Path
+    contacts_path: Path
 
     @classmethod
     def from_env(cls) -> "AppConfig":
         dotenv_values = _load_dotenv()
         home = Path(os.environ.get("HOME", "."))
         default_db = home / ".local" / "share" / "ubisam-mail-mcp" / "mail.db"
+        default_download_dir = Path.cwd() / "downloads"
+        default_contacts_path = Path.cwd() / "data" / "contacts.local.json"
         smtp_host = _env_value("UBISAM_SMTP_HOST", dotenv_values=dotenv_values)
         smtp_username = _env_value("UBISAM_SMTP_USERNAME", dotenv_values=dotenv_values)
         smtp_password = _env_value("UBISAM_SMTP_PASSWORD", dotenv_values=dotenv_values)
@@ -40,6 +47,7 @@ class AppConfig:
             smtp_password=smtp_password,
             smtp_use_tls=_env_flag("UBISAM_SMTP_USE_TLS", default=False, dotenv_values=dotenv_values),
             smtp_use_starttls=_env_flag("UBISAM_SMTP_USE_STARTTLS", default=True, dotenv_values=dotenv_values),
+            smtp_debug=_env_flag("UBISAM_SMTP_DEBUG", default=False, dotenv_values=dotenv_values),
             smtp_tls_servername=_env_value("UBISAM_SMTP_TLS_SERVERNAME", smtp_host, dotenv_values=dotenv_values),
             imap_host=_env_value("UBISAM_IMAP_HOST", smtp_host, dotenv_values=dotenv_values),
             imap_port=int(_env_value("UBISAM_IMAP_PORT", default_imap_port, dotenv_values=dotenv_values)),
@@ -52,7 +60,22 @@ class AppConfig:
                 dotenv_values=dotenv_values,
             ),
             default_from_address=_env_value("UBISAM_DEFAULT_FROM", smtp_username, dotenv_values=dotenv_values),
+            default_from_name=_env_value("UBISAM_DEFAULT_FROM_NAME", "", dotenv_values=dotenv_values),
             sqlite_path=Path(_env_value("UBISAM_MAIL_MCP_DB", str(default_db), dotenv_values=dotenv_values)),
+            attachment_download_dir=Path(
+                _env_value(
+                    "UBISAM_ATTACHMENT_DOWNLOAD_DIR",
+                    str(default_download_dir),
+                    dotenv_values=dotenv_values,
+                )
+            ),
+            contacts_path=Path(
+                _env_value(
+                    "UBISAM_CONTACTS_PATH",
+                    str(default_contacts_path),
+                    dotenv_values=dotenv_values,
+                )
+            ),
         )
 
     def smtp_ready(self) -> bool:
@@ -65,6 +88,19 @@ class AppConfig:
                 self.default_from_address,
             ]
         )
+
+    def load_contacts(self) -> dict[str, str]:
+        if not self.contacts_path.is_file():
+            return {}
+        payload = json.loads(self.contacts_path.read_text(encoding="utf-8"))
+        contacts = payload.get("contacts", [])
+        result: dict[str, str] = {}
+        for item in contacts:
+            email = str(item.get("email", "")).strip().lower()
+            name = str(item.get("name", "")).strip()
+            if email and name:
+                result[email] = name
+        return result
 
     def imap_ready(self) -> bool:
         return all(

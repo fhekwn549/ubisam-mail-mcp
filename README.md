@@ -15,12 +15,26 @@
 ## 범위
 
 - `list_mailboxes`: IMAP 메일함 목록 조회
+- `create_mailbox`: IMAP 메일함/폴더 생성
 - `list_messages`: 메일함 최근 메일 요약 조회
-- `get_message`: 특정 UID 메일 본문 미리보기 조회
-- `create_signature`, `update_signature`, `get_signature`, `list_signatures`, `delete_signature`: 로컬 서명 템플릿 관리
-- `create_draft`: 메일 초안 생성
-- `update_draft`: 초안 수정
+- `get_unread_status`: 읽지 않은 메일 존재 여부, 개수, 최신 unread 요약 조회
+- `search_messages`: 제목/발신자/수신자/본문/날짜/안읽음/첨부 여부 기준 검색
+- `get_message`: 특정 UID 메일 본문 미리보기 및 첨부 메타데이터 조회
+- `set_message_read_status`: 읽음/안읽음 상태 변경
+- `move_messages`: 메일을 다른 메일함으로 이동
+- `delete_messages`: 메일 삭제, 가능하면 휴지통으로 이동
+- `download_message_attachment`: 수신 메일 첨부 저장
+- `create_greeting_template`, `update_greeting_template`, `get_greeting_template`, `list_greeting_templates`, `delete_greeting_template`: 인삿말 템플릿 관리
+- `create_closing_template`, `update_closing_template`, `get_closing_template`, `list_closing_templates`, `delete_closing_template`: 맺음말 템플릿 관리
+- `create_signature_profile`, `update_signature_profile`, `get_signature_profile`, `list_signature_profiles`, `delete_signature_profile`: 개인/부서/연락처/로고 프로필 관리
+- `create_signature`, `update_signature`, `get_signature`, `list_signatures`, `delete_signature`: footer 서명 템플릿 관리
+- `preview_signature`: 인삿말 + 본문 + 클로징 서명 조합 미리보기
+- `preview_closing_signature`: 클로징 서명 block만 미리보기, 로컬 HTML export 가능
+- `create_draft`: 메일 초안 생성, 로컬 첨부 포함 가능
+- `update_draft`: 초안 수정, 첨부 교체 가능
+- `create_reply_draft`, `create_reply_all_draft`: 원본 메일 인용/스레드 헤더 포함 답장 초안 생성
 - `get_draft`, `list_drafts`: 임시보관/발송 상태 조회
+- `upload_draft_to_imap`: 로컬 draft를 IMAP `\\Drafts` 메일함에 업로드
 - `schedule_draft`: 예약 발송 등록
 - `send_draft_now`: 사용자 확인 뒤 즉시 발송
 - `dispatch_due_messages`: 예약 시간이 지난 메일 발송
@@ -31,11 +45,21 @@
 - 예약 발송은 SQLite에 저장된다.
 - 보안상 SMTP 발송은 `TLS(465)` 또는 `STARTTLS(587)` 중 하나가 반드시 켜져 있어야 한다. 둘 다 꺼져 있으면 MCP가 발송을 거부한다.
 - 그룹웨어 웹의 **메일 → 환경설정 → 서명** 값을 직접 읽어오지는 않는다. 필요하면 기존 서명을 1회 복사해 MCP 로컬 템플릿으로 저장한다.
-- 서명 템플릿은 `{{body}}` placeholder를 기준으로 본문을 중간에 삽입한다.
+- 인삿말과 클로징 서명은 분리해서 관리한다.
+- 맺음말 문구와 footer 서명도 분리해서 관리한다.
+- 인삿말 템플릿과 클로징 서명 템플릿은 `{{display_name}}`, `{{department}}`, `{{position}}` 같은 프로필 placeholder를 사용할 수 있다.
+- 맺음말 템플릿은 본문 뒤에 붙는 문구 블록이고, footer 서명 템플릿은 그 아래 연락처/로고 영역을 생성한다.
+- 서명 템플릿의 `mode`가 `wrap_body`면 기존처럼 `{{body}}` placeholder를 기준으로 본문 전체를 감싼다.
+- 서명 템플릿의 `mode`가 `closing_only`면 본문 뒤 footer 블록으로 붙는다.
 - 회사 연락처처럼 글씨색/크기/폰트가 다른 서명은 `html_template`에 inline style로 저장한다.
+- `{{company_logo_img}}` placeholder를 쓰면 프로필의 `logo_image_path`를 HTML 메일에 inline 이미지로 삽입한다.
+- 첨부파일은 MCP 서버가 접근 가능한 로컬 파일 경로를 기준으로 초안에 저장한다.
+- 첨부를 수정할 때는 `update_draft(attachment_paths=[...])`로 전체 첨부 목록을 교체한다.
+- 수신 첨부 다운로드는 `target_path`를 생략하면 `UBISAM_ATTACHMENT_DOWNLOAD_DIR/uid_<uid>/파일명`에 저장한다.
+- `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`만 사용한다.
 - 서버가 실행 중이어야 예약 시간이 도래했을 때 자동 발송할 수 있다.
 - 서버가 꺼져 있으면 `dispatch_due_messages`를 다시 호출해야 밀린 예약 메일을 보낸다.
-- 1차 버전은 첨부파일 다운로드, 유비샘 웹 임시보관함 동기화, IMAP 발송함 업로드를 구현하지 않는다.
+- IMAP 발송함 업로드는 아직 구현하지 않는다.
 
 ## 환경 변수
 
@@ -53,6 +77,9 @@ cp .env.example .env
 - `UBISAM_IMAP_USERNAME`
 - `UBISAM_IMAP_PASSWORD`
 - `UBISAM_DEFAULT_FROM`
+- `UBISAM_DEFAULT_FROM_NAME`
+- `UBISAM_ATTACHMENT_DOWNLOAD_DIR` (선택, 수신 첨부 기본 저장 루트)
+- `UBISAM_CONTACTS_PATH` (선택, `"이름" <메일>` 자동 포맷용 로컬 주소록)
 
 보통 `UBISAM_DEFAULT_FROM`은 자기 메일 주소와 동일하게 둔다.
 
@@ -65,6 +92,11 @@ cp .env.example .env
 - `UBISAM_IMAP_HOST="ubisam.hanbiro.net"`
 - `UBISAM_IMAP_PORT="993"`
 - `UBISAM_IMAP_USE_TLS="true"`
+- `UBISAM_ATTACHMENT_DOWNLOAD_DIR="downloads"`
+
+운영체제별 예시:
+- Linux/macOS/WSL: `UBISAM_ATTACHMENT_DOWNLOAD_DIR="~/Downloads/ubisam-mail"`
+- Windows PowerShell/CMD: `UBISAM_ATTACHMENT_DOWNLOAD_DIR="%USERPROFILE%\\Downloads\\ubisam-mail"`
 
 참고:
 - `2026-06-01` 기준 `ubisam.hanbiro.net`에서 `IMAP 993 SSL`, `IMAP 143`, `SMTP 465 SSL`, `SMTP 587 STARTTLS` 응답을 확인했다.
@@ -146,43 +178,95 @@ env = { UBISAM_ENV_FILE = "/absolute/path/to/ubisam-mail-mcp/.env" }
 
 ## 권장 agent 흐름 / 튜토리얼
 
-1. `create_signature`로 서명 템플릿 저장
-2. `list_signatures` 또는 `get_signature`로 기본 서명 확인
-3. `create_draft`로 초안 생성
-4. `get_draft` 또는 `list_drafts`로 사용자에게 미리보기
-5. 사용자 승인 후 `send_draft_now`
-6. 예약이면 `schedule_draft`
-7. 장기 운영이면 외부 cron/systemd timer로 MCP 서버 또는 보조 dispatcher 실행
+1. `create_greeting_template`로 인삿말 템플릿 저장
+2. `create_signature_profile`로 이름/부서/연락처/로고 프로필 저장
+3. `create_closing_template`로 맺음말 템플릿 저장
+4. `create_signature(mode="closing_only")`로 footer 서명 템플릿 저장
+5. `preview_signature`로 조합 결과 확인
+6. `preview_closing_signature(export_dir="...")`로 footer block만 브라우저 확인
+7. `create_draft`로 초안 생성
+8. `get_draft` 또는 `list_drafts`로 사용자에게 미리보기
+9. 사용자 승인 후 `send_draft_now`
+10. 예약이면 `schedule_draft`
+11. 필요하면 `download_message_attachment`로 수신 첨부 저장
+12. 장기 운영이면 외부 cron/systemd timer로 MCP 서버 또는 보조 dispatcher 실행
 
-서명 템플릿 예시:
+서명 미리보기 예시:
 
 ```text
-안녕하세요.
-
-{{body}}
-
-감사합니다.
-홍길동 드림
-OO팀 / 02-123-4567
+preview_signature(
+  text_body="본문",
+  html_body="<p>본문</p>",
+  apply_default_signature=true
+)
 ```
 
-HTML 서명 예시:
+인삿말 템플릿 예시:
+
+```text
+안녕하십니까.
+{{department}} {{display_name}} {{position}}입니다.
+```
+
+프로필 예시:
+
+```json
+{
+  "display_name": "홍길동",
+  "english_name": "John Doe",
+  "department": "로봇자동화사업부",
+  "position": "사원",
+  "mobile": "010-1234-5678",
+  "email": "your-email@ubisam.com"
+}
+```
+
+맺음말 템플릿 예시:
+
+```text
+확인 부탁드립니다.
+
+감사합니다.
+```
+
+footer 서명 템플릿 예시:
+
+```text
+{{display_name}} 드림
+{{department}} / {{position}}
+m {{mobile}} | e {{email}}
+```
+
+HTML 클로징 서명 예시:
 
 ```html
-<p>안녕하세요.</p>
-<div>{{body}}</div>
+<p>감사합니다.</p>
+<hr>
+<div>{{company_logo_img}}</div>
+<div>
+  <strong>{{display_name}}</strong> / {{english_name}}
+</div>
 <p>
-  감사합니다.<br>
-  홍길동 드림<br>
+  {{department}} / {{position}}<br>
   <span style="color:#666;font-size:12px;font-family:'Malgun Gothic';">
-    OO팀 / 02-123-4567
+    m {{mobile}} | e {{email}}
   </span>
 </p>
 ```
 
 메모:
-- `create_draft`에서 `signature_id`를 주면 해당 서명을 사용한다.
+- `create_draft`에서 `greeting_template_id`, `closing_template_id`, `signature_profile_id`, `signature_id`를 같이 주면 조합형 서명이 적용된다.
+- `create_signature(mode="wrap_body")`는 기존 방식, `create_signature(mode="closing_only")`는 footer 방식이다.
 - `apply_default_signature=true`면 기본 서명이 자동 적용된다.
+- `apply_default_greeting_template=true`, `apply_default_closing_template=true`, `apply_default_signature_profile=true`도 각각 기본 인삿말/맺음말/프로필을 자동 적용한다.
+- `update_draft`에서 `clear_signature=true`면 초안 서명을 제거한다.
+- `update_draft`에서 `clear_greeting_template=true`, `clear_closing_template=true`, `clear_signature_profile=true`로 인삿말/맺음말/프로필도 해제할 수 있다.
+- `update_draft`에서 `apply_default_signature=true`면 현재 기본 서명을 다시 붙인다.
+- `logo_image_path`가 있는 프로필과 `{{company_logo_img}}` placeholder가 있는 HTML 서명 템플릿을 함께 쓰면 회사 로고가 inline 이미지로 포함된다.
+- `preview_closing_signature(export_dir="...")`를 쓰면 메일 발송 없이 `signature-preview.html`과 로고 asset을 로컬에 만들어 브라우저로 확인할 수 있다.
+- `create_draft`와 `update_draft`에서 `attachment_paths=["/path/a.pdf", "/path/b.png"]` 형식으로 첨부를 다룬다.
+- `get_message` 응답의 `attachments[].index` 값을 `download_message_attachment`의 `attachment_index`에 넣어 첨부를 저장한다.
+- `download_message_attachment`에서 `target_path`를 생략하면 `.env`의 `UBISAM_ATTACHMENT_DOWNLOAD_DIR`를 기준으로 저장한다.
 - 초안 조회 응답에는 원본 `text_body`/`html_body`와 함께 서명까지 합쳐진 `rendered_text_body`/`rendered_html_body`가 포함된다.
 
 ## 테스트

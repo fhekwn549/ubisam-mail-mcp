@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 *.egg-info/
 $HOME/
+data/*.local.json

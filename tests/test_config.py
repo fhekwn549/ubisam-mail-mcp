@@ -22,6 +22,7 @@ def test_imap_defaults_follow_smtp_values(monkeypatch, tmp_path):
     assert config.smtp_tls_servername == "mail.ubisam.com"
     assert config.imap_tls_servername == "mail.ubisam.com"
     assert config.sqlite_path == Path(tmp_path) / ".local" / "share" / "ubisam-mail-mcp" / "mail.db"
+    assert config.attachment_download_dir == Path(tmp_path) / "downloads"
 
 
 def test_imap_env_overrides(monkeypatch, tmp_path):
@@ -88,3 +89,47 @@ def test_process_env_overrides_dotenv(monkeypatch, tmp_path):
     config = AppConfig.from_env()
 
     assert config.smtp_username == "env@ubisam.com"
+
+
+def test_smtp_debug_flag_reads_from_env(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UBISAM_SMTP_HOST", "mail.ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_USERNAME", "user@ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("UBISAM_SMTP_DEBUG", "true")
+
+    config = AppConfig.from_env()
+
+    assert config.smtp_debug is True
+
+
+def test_attachment_download_dir_reads_from_env(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UBISAM_SMTP_HOST", "mail.ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_USERNAME", "user@ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("UBISAM_ATTACHMENT_DOWNLOAD_DIR", str(tmp_path / "mail-downloads"))
+
+    config = AppConfig.from_env()
+
+    assert config.attachment_download_dir == tmp_path / "mail-downloads"
+
+
+def test_contacts_and_default_from_name_read_from_env(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    contacts_path = tmp_path / "contacts.json"
+    contacts_path.write_text(
+        '{"contacts":[{"name":"홍길동","email":"your-email@ubisam.com"}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("UBISAM_SMTP_HOST", "mail.ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_USERNAME", "user@ubisam.com")
+    monkeypatch.setenv("UBISAM_SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("UBISAM_DEFAULT_FROM_NAME", "홍길동")
+    monkeypatch.setenv("UBISAM_CONTACTS_PATH", str(contacts_path))
+
+    config = AppConfig.from_env()
+
+    assert config.default_from_name == "홍길동"
+    assert config.contacts_path == contacts_path
+    assert config.load_contacts() == {"your-email@ubisam.com": "홍길동"}
