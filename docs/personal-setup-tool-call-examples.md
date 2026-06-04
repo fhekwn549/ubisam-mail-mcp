@@ -1,23 +1,40 @@
-# ubisam-mail-mcp 개인 설정 Tool 호출 예문
+# ubisam-mail-mcp 자연어 요청 ↔ Tool 호출 예문
 
-이 문서는 [personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md) 과
-[docs/examples/personal-setup](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup) 예시 파일을 기준으로,
-실제로 MCP tool에 넣을 수 있는 호출 예문을 모아둔 문서다.
+이 문서는 [personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md)의 짝꿍 문서다.
+
+- **왼쪽("이렇게 말하세요")**: AI 채팅창에 평소처럼 한국어로 부탁하는 문장.
+- **오른쪽(코드 블록)**: 그 부탁을 받은 AI가 내부적으로 호출하는 실제 tool 형태.
+
+당신은 보통 **왼쪽만** 쓰면 된다. 코드 블록은 "AI가 뭘 하는지" 확인하거나, 값을 정확히 지정하고 싶을 때 참고한다.
 
 검증 상태:
 - `2026-06-02` 임시 DB/임시 다운로드 경로 기준 스모크 테스트 완료
-- 검증 완료 범위: `config_status`, `create_signature_profile`, `create_greeting_template`, `create_closing_template`, `create_signature`, `preview_signature`, `preview_closing_signature`, `create_draft`, `get_draft`
-- 제외 범위: 실제 SMTP 발송, 실제 IMAP 업로드, 실계정 수신 확인
+- 검증 범위: `config_status`, `create_signature_profile`, `create_greeting_template`, `create_closing_template`, `create_signature`, `preview_signature`, `preview_closing_signature`, `create_draft`, `get_draft`
+- 제외: 실제 SMTP 발송, 실제 IMAP 업로드, 실계정 수신 확인
 
 전제:
-- 예시 JSON 4개를 먼저 본인 정보로 수정
-- `signature-profile.example.json`의 `logo_image_path`를 실제 로컬 절대경로로 수정
-- 아래 예문은 익명화 샘플 값 `홍길동 / John Doe / 洪吉童` 기준
+- 예시 값은 익명화 샘플 `홍길동 / John Doe / 洪吉童` 기준
+- 프로필의 `logo_image_path`는 본인 PC의 **절대경로**로 바꿔서 말한다
 
-## 1. 프로필 생성
+---
 
-참조 파일:
-- [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json)
+## 0. 연결 확인
+
+> 이렇게 말하세요: **"내 메일 설정 상태 확인해줘."**
+
+```text
+config_status()
+```
+
+응답에서 `smtp_ready`, `imap_ready`, `default_from_address` 확인.
+
+---
+
+## 1. 기본 서명 프로필 만들기
+
+> 이렇게 말하세요: **"이 정보로 기본 서명 프로필 만들어줘. 이름 홍길동, 영문 John Doe, 한자 洪吉童, 부서 로봇자동화사업부, 팀 로봇팀, 직급 사원, 영문부서 Robot Automation, 영문직함 Software Engineer, 대표전화 02-1234-5678, 휴대폰 010-1234-5678, 이메일 hong.gildong@ubisam.com, 로고는 /절대경로/logo-color.png. 기본값으로 해줘."**
+
+참조 파일: [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json)
 
 ```text
 create_signature_profile(
@@ -40,38 +57,51 @@ create_signature_profile(
 )
 ```
 
-## 2. 인삿말 템플릿 생성
+> `hanja_name`, `division_english`, `job_title_english`는 기본 footer가 사용한다. 비우면 footer에 빈칸이 생긴다.
 
-참조 파일:
-- [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
+---
+
+## 2. 기본 인삿말 템플릿 만들기
+
+> 이렇게 말하세요: **"기본 인삿말 만들어줘. '안녕하십니까. {부서} {팀} {이름} {직급}입니다.' 형식으로."**
+
+참조 파일: [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
 
 ```text
 create_greeting_template(
   name="기본 인삿말",
   text_template="안녕하십니까.\n{{department}} {{team}} {{display_name}} {{position}}입니다.",
-  html_template="<p>안녕하십니까.</p><p>{{department}} {{team}} {{display_name}} {{position}}입니다.</p>",
   is_default=true
 )
 ```
 
-## 3. 맺음말 템플릿 생성
+> 인삿말은 `text_template`만 넣으면 된다. HTML 메일에는 이 텍스트가 자동 변환돼 들어간다.
 
-참조 파일:
-- [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
+---
+
+## 3. 기본 맺음말 템플릿 만들기
+
+> 이렇게 말하세요: **"기본 맺음말 만들어줘. '확인 부탁드립니다. 감사합니다.'로."**
+
+참조 파일: [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
 
 ```text
 create_closing_template(
   name="기본 맺음말",
   text_template="확인 부탁드립니다.\n\n감사합니다.",
-  html_template="<p>확인 부탁드립니다.</p><p>감사합니다.</p>",
   is_default=true
 )
 ```
 
-## 4. footer 서명 템플릿 생성
+> 맺음말도 `text_template`만으로 충분하다. footer 서명만 `html_template`이 핵심이라 둘 다 둔다.
 
-참조 파일:
-- [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
+---
+
+## 4. 기본 footer 서명 만들기
+
+> 이렇게 말하세요: **"기본 footer 서명 만들어줘. 이름/영문명/한자명, 부서/영문부서/영문직함, 전화/휴대폰/이메일이 한 줄씩 나오게. 회사 서명 스타일로."**
+
+참조 파일: [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
 
 ```text
 create_signature(
@@ -83,7 +113,13 @@ create_signature(
 )
 ```
 
+> 한글 폰트는 `Malgun Gothic`을 쓴다. `{{company_logo_img}}`는 프로필에 `logo_image_path`가 있을 때만 렌더링된다.
+
+---
+
 ## 5. 전체 서명 미리보기
+
+> 이렇게 말하세요: **"기본 서명 다 적용해서 미리보기 보여줘."**
 
 ```text
 preview_signature(
@@ -96,27 +132,33 @@ preview_signature(
 )
 ```
 
-확인 포인트:
-- 인삿말 위치
-- 맺음말 위치
-- footer 이름/부서/연락처 치환
-- HTML 줄간격/색상/폰트
+확인: 인삿말 위치 / 맺음말 위치 / footer 치환 / HTML 줄간격·색상·폰트.
 
-## 6. footer만 미리보기
+---
+
+## 6. footer만 HTML로 뽑아 브라우저 확인
+
+> 이렇게 말하세요: **"footer 서명만 HTML로 뽑아서 /절대경로/downloads/sig-preview 폴더에 저장해줘."**
 
 ```text
 preview_closing_signature(
   apply_default_signature=true,
   apply_default_signature_profile=true,
-  export_dir="downloads/signature-preview-hong-gildong"
+  export_dir="/absolute/path/to/downloads/signature-preview-hong-gildong"
 )
 ```
 
-결과:
-- `downloads/signature-preview-hong-gildong/signature-preview.html`
-- `downloads/signature-preview-hong-gildong/assets/logo-color.png`
+> `export_dir`는 서버의 현재 작업 디렉토리 기준으로 풀린다. 위치를 확실히 하려면 절대경로(`/home/<user>/...`)를 쓴다.
 
-## 7. 첫 초안 생성
+결과(절대경로 기준):
+- `<export_dir>/signature-preview.html`
+- `<export_dir>/assets/logo-color.png`
+
+---
+
+## 7. 첫 초안 만들기
+
+> 이렇게 말하세요: **"someone@example.com 한테 'MCP 테스트 메일' 제목으로 초안 만들어줘. 본문은 '본문 초안입니다.' 기본 서명 다 적용해서."**
 
 ```text
 create_draft(
@@ -131,19 +173,90 @@ create_draft(
 )
 ```
 
-이후 확인:
+확인:
 
 ```text
 get_draft(draft_id="생성된 draft id")
 ```
 
-응답에서 확인:
-- `rendered_text_body`
-- `rendered_html_body`
+응답에서 `rendered_text_body`, `rendered_html_body` 확인.
 
-## 8. 특정 템플릿 ID를 직접 지정해 초안 만들기
+---
 
-기본값 대신 특정 템플릿 조합을 강제로 쓰고 싶을 때:
+## 8. 초안 발송 / 예약
+
+> 이렇게 말하세요: **"좋아, 지금 보내줘."**
+
+```text
+send_draft_now(draft_id="draft-id")
+```
+
+> 이렇게 말하세요: **"내일 오전 9시에 예약 발송해줘."**
+
+```text
+schedule_draft(draft_id="draft-id", scheduled_for="2026-06-05T09:00:00+09:00")
+```
+
+> 서버가 켜져 있어야 예약 시간에 자동 발송된다. 밀린 예약은 "밀린 예약 메일 보내줘" → `dispatch_due_messages()`.
+
+---
+
+## 9. 메일 조회 / 검색
+
+> **"안 읽은 메일 있어?"**
+
+```text
+get_unread_status(mailbox="INBOX")
+```
+
+> **"받은편지함 최근 메일 보여줘."**
+
+```text
+list_messages(mailbox="INBOX", limit=10)
+```
+
+> **"제목에 '주간보고' 들어간 메일 찾아줘."** (보낸메일함 기준)
+
+```text
+search_messages(mailbox="Sent", subject_contains="주간보고", limit=50)
+```
+
+---
+
+## 10. 메일 정리 — 주간보고 모으기 (복사, 원본 유지)
+
+> 이렇게 말하세요: **"'주간보고' 메일함 만들고, 보낸메일함에서 제목에 '주간보고' 들어간 메일을 거기로 복사해줘."**
+
+AI가 순서대로 호출한다:
+
+```text
+list_mailboxes()                                  # 보낸메일함 정확한 이름 확인
+create_mailbox(mailbox="주간보고")                  # 새 메일함 생성
+search_messages(mailbox="Sent", subject_contains="주간보고", limit=50)   # 대상 UID 수집
+copy_messages(
+  from_mailbox="Sent",
+  to_mailbox="주간보고",
+  uids=["101", "102", "103"]                       # 위 검색 결과의 UID
+)
+```
+
+> `copy_messages`는 원본을 보낸메일함에 그대로 둔 채 사본만 만든다(발송 기록 보존).
+
+원본까지 옮기고 싶을 때(보낸메일함에서 사라짐):
+
+> **"복사 말고 이동해줘."**
+
+```text
+move_messages(from_mailbox="Sent", to_mailbox="주간보고", uids=["101", "102", "103"])
+```
+
+---
+
+## 11. 특정 템플릿 ID를 직접 지정해 초안 만들기
+
+기본값 대신 특정 조합을 강제로 쓸 때:
+
+> 이렇게 말하세요: **"이번 건 외부용 정중한 인삿말이랑 영문 프로필로 초안 만들어줘."**
 
 ```text
 create_draft(
@@ -171,18 +284,17 @@ list_signature_profiles()
 list_signatures()
 ```
 
-## 9. 기본값 다시 적용하거나 해제
+---
 
-서명만 다시 기본값 붙이기:
+## 12. 기본값 다시 적용하거나 해제
+
+> **"이 초안에 기본 서명 다시 붙여줘."**
 
 ```text
-update_draft(
-  draft_id="draft-id",
-  apply_default_signature=true
-)
+update_draft(draft_id="draft-id", apply_default_signature=true)
 ```
 
-인삿말/맺음말/프로필/서명 제거:
+> **"인삿말·맺음말·프로필·서명 다 떼줘."**
 
 ```text
 update_draft(
@@ -193,11 +305,3 @@ update_draft(
   clear_signature=true
 )
 ```
-
-## 10. 동료에게 그대로 전달할 최소 세트
-
-동료 온보딩 때는 아래 3개만 먼저 전달하면 된다.
-
-1. [personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md)
-2. [docs/examples/personal-setup](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup)
-3. 이 문서 [personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)

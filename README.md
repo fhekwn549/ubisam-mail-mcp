@@ -21,7 +21,8 @@
 - `search_messages`: 제목/발신자/수신자/본문/날짜/안읽음/첨부 여부 기준 검색
 - `get_message`: 특정 UID 메일 본문 미리보기 및 첨부 메타데이터 조회
 - `set_message_read_status`: 읽음/안읽음 상태 변경
-- `move_messages`: 메일을 다른 메일함으로 이동
+- `move_messages`: 메일을 다른 메일함으로 이동 (원본은 원래 메일함에서 사라짐)
+- `copy_messages`: 메일을 원본 유지한 채 다른 메일함으로 복사 (보낸메일함 기록 보존용)
 - `delete_messages`: 메일 삭제, 가능하면 휴지통으로 이동
 - `download_message_attachment`: 수신 메일 첨부 저장
 - `create_greeting_template`, `update_greeting_template`, `get_greeting_template`, `list_greeting_templates`, `delete_greeting_template`: 인삿말 템플릿 관리
@@ -57,6 +58,7 @@
 - 첨부를 수정할 때는 `update_draft(attachment_paths=[...])`로 전체 첨부 목록을 교체한다.
 - 수신 첨부 다운로드는 `target_path`를 생략하면 `UBISAM_ATTACHMENT_DOWNLOAD_DIR/uid_<uid>/파일명`에 저장한다.
 - `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`만 사용한다.
+- `copy_messages`는 IMAP `COPY`만 사용해 원본을 그대로 둔 채 사본을 만든다(보낸메일함 등 발송 기록 보존). 원본을 옮겨야 하면 `move_messages`를 쓴다.
 - 서버가 실행 중이어야 예약 시간이 도래했을 때 자동 발송할 수 있다.
 - 서버가 꺼져 있으면 `dispatch_due_messages`를 다시 호출해야 밀린 예약 메일을 보낸다.
 - IMAP 발송함 업로드는 아직 구현하지 않는다.

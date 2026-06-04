@@ -476,6 +476,27 @@ def test_move_messages_falls_back_to_copy_delete_expunge(monkeypatch, tmp_path):
     assert fake_client.expunge_called is True
 
 
+def test_copy_messages_copies_without_expunge(monkeypatch, tmp_path):
+    client = make_client(tmp_path)
+    fake_client = FakeImapWriteClient(move_status="OK")
+
+    @contextmanager
+    def fake_connect():
+        yield fake_client
+
+    monkeypatch.setattr(client, "_connect", fake_connect)
+
+    result = client.copy_messages(from_mailbox="Sent", to_mailbox="주간보고", uids=["15", "16"])
+
+    assert result["copied"] == 2
+    assert result["from_mailbox"] == "Sent"
+    assert result["to_mailbox"] == "주간보고"
+    assert fake_client.selected == ("Sent", True)
+    assert fake_client.copy_calls == [("15,16", "주간보고")]
+    assert fake_client.store_calls == []
+    assert fake_client.expunge_called is False
+
+
 def test_delete_messages_prefers_trash_mailbox(monkeypatch, tmp_path):
     client = make_client(tmp_path)
     fake_client = FakeImapWriteClient(move_status="OK")

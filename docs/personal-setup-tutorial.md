@@ -1,322 +1,304 @@
-# ubisam-mail-mcp 개인 설정 튜토리얼
+# ubisam-mail-mcp 처음 사용 가이드 (완전 초보용)
 
-이 문서는 동료가 처음 `ubisam-mail-mcp`를 붙인 뒤 자기 계정과 개인 메일 템플릿을 세팅하는 순서를 설명한다.
+이 문서는 **AI(Claude 등)를 처음 써 보는 동료**가 `ubisam-mail-mcp`를 자기 PC에 붙여서,
+AI에게 한국어로 말만 하면 메일을 정리·작성·발송하도록 만드는 전체 과정을 순서대로 설명한다.
 
-목표:
-- 계정 연결 확인
-- 개인 인삿말 템플릿 저장
-- 개인 맺음말 템플릿 저장
-- 개인 footer 서명 저장
-- 이름/부서/연락처/로고 프로필 저장
-- 기본값 지정 후 초안 작성 시 자동 적용
+> 핵심 개념 먼저: 당신이 직접 명령어나 코드를 외울 필요는 없다.
+> 설정만 한 번 끝내면, 이후에는 **AI에게 평소 말하듯 부탁**하면 된다.
+> 예: "안 읽은 메일 있어?", "이 내용으로 초안 만들어줘", "보낸메일함에서 주간보고 메일 모아줘".
+> AI가 알아서 뒤에 있는 메일 기능(tool)을 대신 호출한다. 아래 코드 블록은 "AI가 내부적으로 이렇게 부른다"는 참고용이다.
 
-복붙용 예시 파일:
-- [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
-- [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
-- [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json)
-- [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
-- logo asset: [logo-color.png](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png)
-- tool 호출 예문: [personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)
+대상:
+- 그룹웨어 메일 계정이 있는 회사 동료
+- 터미널/코드 경험이 거의 없어도 됨 (복붙 위주)
 
-검증 메모:
-- 위 `tool 호출 예문` 문서의 주요 예문은 `2026-06-02` 임시 환경 스모크 테스트로 검증했다.
+다 끝내면 할 수 있는 것:
+- AI에게 말로 메일 조회·검색
+- 내 서명/인삿말 자동 적용된 메일 초안 작성
+- 확인 후 발송 또는 예약 발송
+- 보낸메일 등을 주제별 메일함으로 정리
 
-이 예시 파일들은 현재 사용 중인 서명 레이아웃을 기준으로 익명화한 샘플이다.
-- 한글 이름: `홍길동`
-- 영문 이름: `John Doe`
-- 한자 이름: `洪吉童`
+---
 
-## 1. 먼저 해야 할 것
+## 큰 그림 (6단계)
 
-사전 조건:
-- 그룹웨어에서 `메일 -> 환경설정 -> SMTP-POP3-IMAP -> SMTP/IMAP` 사용 활성화
-- 로컬에 이 레포 설치
-- MCP 클라이언트에 `UBISAM_ENV_FILE` 설정 완료
+1. 그룹웨어에서 외부 메일 연동 켜기
+2. 프로그램 설치 (Python + 이 레포)
+3. 내 계정 정보 입력 (`.env` 파일)
+4. AI 앱(MCP 클라이언트)에 연결
+5. 연결 확인
+6. 사용 시작 (서명 세팅 → 초안 → 발송 → 메일 정리)
 
-`.env` 파일 예시:
+각 단계를 아래에서 하나씩 따라가면 된다. **순서대로** 하는 게 중요하다.
+
+---
+
+## 1단계. 그룹웨어에서 외부 메일 연동 켜기
+
+이걸 먼저 안 켜면, 설정을 아무리 잘해도 로그인이 거부된다.
+
+1. 유비샘 그룹웨어 웹에 로그인
+2. **메일 → 환경설정 → SMTP-POP3-IMAP → SMTP/IMAP** 메뉴로 이동
+3. **SMTP / IMAP 사용**을 활성화하고 저장
+
+> IMAP = 메일을 읽어오는 통로, SMTP = 메일을 보내는 통로. 둘 다 켜야 한다.
+
+---
+
+## 2단계. 프로그램 설치
+
+### 2-1. Python 3.10 이상 확인
+
+터미널(Windows는 PowerShell, Mac은 터미널 앱)을 열고:
+
+```bash
+python3 --version
+```
+
+- `Python 3.10.x` 이상이 나오면 통과.
+- 안 나오거나 3.10 미만이면 [python.org](https://www.python.org/downloads/)에서 최신 버전을 먼저 설치한다.
+
+### 2-2. 레포 받기 / 설치
+
+그룹웨어에서 받은 압축 파일을 풀고 설치한다:
+
+```bash
+unzip ubisam-mail-mcp.zip      # 받은 압축 파일 풀기
+cd ubisam-mail-mcp
+python3 -m venv .venv && source .venv/bin/activate   # (선택) 가상환경
+pip install -e .
+```
+
+`pip install -e .`가 끝나면 `ubisam-mail-mcp`라는 실행 명령이 생긴다. 이게 AI와 메일을 잇는 서버다.
+
+> Windows에서 가상환경 활성화는 `source .venv/bin/activate` 대신 `.venv\Scripts\activate`.
+
+---
+
+## 3단계. 내 계정 정보 입력 (`.env`)
+
+서버가 내 메일 계정으로 로그인하려면 계정값이 필요하다. 예시 파일을 복사해서 내 값으로 채운다:
 
 ```bash
 cp .env.example .env
 ```
 
-최소 수정 항목:
-- `UBISAM_SMTP_USERNAME`
-- `UBISAM_SMTP_PASSWORD`
-- `UBISAM_IMAP_USERNAME`
-- `UBISAM_IMAP_PASSWORD`
-- `UBISAM_DEFAULT_FROM`
-- `UBISAM_DEFAULT_FROM_NAME`
+그다음 `.env` 파일을 메모장/편집기로 열어 **내 값으로 수정**한다.
 
-권장:
-- `UBISAM_ATTACHMENT_DOWNLOAD_DIR`
-- `UBISAM_CONTACTS_PATH`
+반드시 채워야 하는 항목:
+- `UBISAM_SMTP_USERNAME` — 내 메일 주소 (보내기용 로그인 아이디)
+- `UBISAM_SMTP_PASSWORD` — 메일 비밀번호
+- `UBISAM_IMAP_USERNAME` — 보통 메일 주소와 동일
+- `UBISAM_IMAP_PASSWORD` — 메일 비밀번호
+- `UBISAM_DEFAULT_FROM` — 내 메일 주소 (보내는 사람)
+- `UBISAM_DEFAULT_FROM_NAME` — 받는 사람에게 보일 내 이름
 
-확인 방법:
-- MCP 연결 후 `config_status` 호출
-- `smtp_ready=true`
-- `imap_ready=true`
-- `default_from_address`가 본인 주소인지 확인
+채우면 좋은 항목(선택):
+- `UBISAM_ATTACHMENT_DOWNLOAD_DIR` — 받은 첨부를 저장할 폴더
+- `UBISAM_CONTACTS_PATH` — 이름↔메일 자동 변환용 주소록 파일
 
-## 2. 템플릿 구조 이해
+나머지 호스트/포트 값(`ubisam.hanbiro.net`, SMTP 587 STARTTLS, IMAP 993 SSL 등)은 `.env.example`에 이미 권장값이 들어 있으니 그대로 두면 된다.
 
-이 MCP는 메일 끝부분을 4개 조각으로 나눈다.
+> `.env`에는 비밀번호가 들어간다. 다른 사람과 공유하거나 외부에 올리지 않는다.
 
-1. `greeting template`
-본문 위 인삿말.
+---
 
-2. `closing template`
-본문 아래 맺음말 문구.
+## 4단계. AI 앱(MCP 클라이언트)에 연결
 
-3. `signature profile`
-이름, 부서, 직급, 연락처, 로고 같은 placeholder 값 모음.
+쓰는 AI 앱에 맞는 항목 **하나만** 따라 하면 된다. 공통 규칙: `.env`의 **절대경로**를 `UBISAM_ENV_FILE`로 알려준다.
+(절대경로 = `/home/내이름/ubisam-mail-mcp/.env` 처럼 맨 앞부터 전체 경로)
 
-4. `signature`
-footer 서명 템플릿. 보통 `mode="closing_only"` 사용.
+### Claude Desktop을 쓰는 경우
 
-권장 조합:
-- 인삿말: `create_greeting_template`
-- 맺음말: `create_closing_template`
-- 프로필: `create_signature_profile`
-- footer: `create_signature(mode="closing_only")`
+앱 메뉴 **Settings → Developer → Edit Config**로 설정 파일을 열고 아래를 넣는다:
 
-추천 작업 순서:
-1. 예시 JSON 파일 4개를 열어 본인 정보로 수정
-2. `signature-profile.example.json`의 `logo_image_path`를 실제 로컬 경로로 수정
-3. 수정한 JSON 내용을 MCP tool 인자로 사용
-4. `preview_signature`, `preview_closing_signature`로 검증
-5. 이상 없으면 기본값으로 사용
-
-## 3. 제일 먼저 프로필 만들기
-
-프로필은 템플릿이 참조할 실제 값 저장소다. 보통 이것부터 만든다.
-
-사용 파일:
-- [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json)
-
-호출:
-
-```text
-create_signature_profile(...)
+```json
+{
+  "mcpServers": {
+    "ubisam-mail": {
+      "command": "ubisam-mail-mcp",
+      "env": { "UBISAM_ENV_FILE": "/절대경로/ubisam-mail-mcp/.env" }
+    }
+  }
+}
 ```
 
-메모:
-- `fields` 키 이름은 자유다.
-- 템플릿에서 `{{display_name}}`, `{{department}}`처럼 그대로 참조한다.
-- `logo_image_path`는 선택이다.
-- `is_default=true`면 초안 작성 시 기본 프로필로 자동 적용된다.
-- 최소 수정 권장 항목은 `display_name`, `english_name`, `department`, `team`, `position`, `office_phone`, `mobile`, `email`, `logo_image_path`다.
+저장 후 **앱을 완전히 종료했다 다시 켠다**.
 
-## 4. 인삿말 템플릿 만들기
+### Claude Code(터미널)를 쓰는 경우
 
-사용 파일:
+```bash
+claude mcp add ubisam-mail \
+  --env UBISAM_ENV_FILE=/절대경로/ubisam-mail-mcp/.env \
+  -- ubisam-mail-mcp
+```
+
+> 등록 후에는 Claude Code를 한 번 재시작해야 메일 기능이 대화에 나타난다.
+
+### Codex를 쓰는 경우
+
+`~/.codex/config.toml`에:
+
+```toml
+[mcp_servers.ubisam_mail]
+command = "ubisam-mail-mcp"
+env = { UBISAM_ENV_FILE = "/절대경로/ubisam-mail-mcp/.env" }
+```
+
+자세한 클라이언트별 설명은 [README.md](/home/yourname/ubisam-mail-mcp/README.md)의 "MCP 클라이언트 설정" 참고.
+
+---
+
+## 5단계. 연결 확인
+
+AI 앱을 새로 켠 뒤, 채팅창에 이렇게 말한다:
+
+> **"내 메일 설정 상태 확인해줘."**
+
+AI가 내부적으로 `config_status`를 호출하고, 다음을 보여준다:
+- `smtp_ready: true` (보내기 준비됨)
+- `imap_ready: true` (읽기 준비됨)
+- `default_from_address`가 내 주소인지
+
+둘 중 하나라도 `false`면 1~3단계(그룹웨어 활성화 / `.env` 값)를 다시 확인한다.
+
+<details>
+<summary>참고: AI가 내부적으로 부르는 형태</summary>
+
+```text
+config_status()
+```
+</details>
+
+---
+
+## 6단계. 사용 시작
+
+여기서부터가 실제 사용이다. **한 번만 서명을 세팅**해 두면, 이후 메일은 서명이 자동으로 붙는다.
+
+### 6-1. 메일 서명/인삿말 세팅 (한 번만)
+
+이 MCP는 메일 끝부분을 4개 조각으로 관리한다:
+
+| 조각 | 역할 | 만드는 기능 |
+|------|------|-------------|
+| 프로필(profile) | 이름·부서·연락처·로고 같은 **값 모음** | `create_signature_profile` |
+| 인삿말(greeting) | 본문 **위** 인사 문구 | `create_greeting_template` |
+| 맺음말(closing) | 본문 **아래** 마무리 문구 | `create_closing_template` |
+| footer 서명(signature) | 맨 아래 연락처/로고 블록 | `create_signature(mode="closing_only")` |
+
+> 인삿말·맺음말은 글자만 있으면 되므로 **텍스트만** 넣으면 된다(HTML은 자동 생성). 반면 footer 서명은 색상·로고 같은 스타일이 핵심이라 **HTML과 텍스트를 함께** 둔다. 그래서 예시 파일도 인삿말/맺음말은 텍스트만, footer는 둘 다 들어 있다.
+
+먼저 복붙용 예시 파일 4개를 열어 **본인 정보로 수정**한다(특히 프로필):
+- [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json) ← 이름/부서/연락처/로고
 - [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
-
-호출:
-
-```text
-create_greeting_template(...)
-```
-
-메모:
-- `text_template`, `html_template` 둘 중 하나는 필수다.
-- HTML을 직접 넣지 않으면 text 기반으로 렌더링된다.
-- 기본 인삿말 하나만 둘 거면 `is_default=true` 권장.
-- 현재 예시는 `{{department}} {{team}} {{display_name}} {{position}}` 형식이다.
-- 팀명을 빼고 싶으면 `{{team}}` 부분만 지우면 된다.
-
-## 5. 맺음말 템플릿 만들기
-
-사용 파일:
 - [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
-
-호출:
-
-```text
-create_closing_template(...)
-```
-
-메모:
-- 이 블록은 본문 뒤, footer 위에 들어간다.
-- `{{display_name}}` 같은 프로필 placeholder도 사용 가능하다.
-
-## 6. footer 서명 만들기
-
-일반 권장값은 `mode="closing_only"`다.
-
-사용 파일:
 - [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
-- logo asset 예시: [logo-color.png](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png)
+- 로고 이미지: [logo-color.png](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png)
 
-호출:
+> 예시 값은 익명화 샘플 `홍길동 / John Doe / 洪吉童` 기준이다.
 
-```text
-create_signature(...)
-```
+**프로필에 꼭 채울 항목** (기본 footer가 이 값들을 사용한다):
+`display_name`, `english_name`, `hanja_name`, `department`, `division_english`, `team`, `position`, `job_title_english`, `office_phone`, `mobile`, `email`, `logo_image_path`
 
-메모:
-- `{{company_logo_img}}`는 프로필의 `logo_image_path`가 있을 때만 렌더링된다.
-- 회사 메일 서명처럼 스타일이 중요하면 `html_template`에 inline style 권장.
-- 한글 폰트는 `Malgun Gothic` 사용.
-- `wrap_body` 모드는 예전 전체 감싸기 방식이다. 이 튜토리얼은 `closing_only` 기준이다.
-- 현재 예시는 `이름 / 영문명 / 한자명`, `부서 / 영문 부서명 / 영문 직함`, `대표전화 / 휴대전화 / 이메일`을 한 줄씩 노출한다.
+> `hanja_name`, `division_english`, `job_title_english`를 비워 두면 footer에 ` / ` 같은 빈칸이 남는다. 안 쓰면 해당 칸을 템플릿에서 지워야 한다.
 
-## 7. 미리보기로 검증
+이제 AI에게 순서대로 부탁한다. **수정한 JSON 파일을 업로드하는 게 아니라**, 그 안의 값을 AI에게 알려주면 AI가 대신 등록한다.
 
-메일 보내기 전 반드시 `preview_signature`로 확인한다.
+> **"이 정보로 내 기본 서명 프로필 만들어줘. 이름 홍길동, 영문 John Doe, 한자 洪吉童, 부서 로봇자동화사업부, 팀 로봇팀, 직급 사원, 영문부서 Robot Automation, 영문직함 Software Engineer, 대표전화 02-1234-5678, 휴대폰 010-1234-5678, 이메일 hong.gildong@ubisam.com, 로고는 /절대경로/logo-color.png. 이걸 기본값으로 해줘."**
 
-예시:
+이어서:
+> **"기본 인삿말 템플릿도 만들어줘. '안녕하십니까. 로봇자동화사업부 로봇팀 홍길동 사원입니다.' 형식으로."**
+> **"기본 맺음말도 만들어줘. '확인 부탁드립니다. 감사합니다.'로."**
+> **"기본 footer 서명도 만들어줘. 이름/영문명/한자명, 부서/영문부서/영문직함, 전화/휴대폰/이메일이 한 줄씩 나오게."**
 
-```json
-{
-  "text_body": "본문 테스트입니다.",
-  "html_body": "<p>본문 테스트입니다.</p>",
-  "apply_default_greeting_template": true,
-  "apply_default_closing_template": true,
-  "apply_default_signature": true,
-  "apply_default_signature_profile": true
-}
-```
+구체적인 tool 호출 형태(복붙 가능)는 [personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)에 정리돼 있다.
 
-호출:
+### 6-2. 미리보기로 확인
 
-```text
-preview_signature(...)
-```
+발송 전에 서명이 제대로 붙는지 본다:
 
-확인 포인트:
-- 인삿말이 본문 위에 붙는지
-- 맺음말이 본문 아래에 붙는지
-- footer에 이름/부서/연락처가 치환되는지
-- HTML에서 줄바꿈/폰트/색상 깨짐 없는지
+> **"기본 서명 적용해서 미리보기 보여줘."**
 
-footer만 따로 보고 싶으면:
+AI가 `preview_signature`를 호출해 인삿말+본문+맺음말+footer 조합을 보여준다.
 
-```json
-{
-  "export_dir": "downloads/signature-preview-kim-minjun",
-  "apply_default_signature": true,
-  "apply_default_signature_profile": true
-}
-```
+footer만 브라우저로 확인하고 싶으면:
 
-호출:
+> **"footer 서명만 HTML로 뽑아줘. /절대경로/downloads/sig-preview 폴더에 저장해줘."**
 
-```text
-preview_closing_signature(...)
-```
+> 저장 위치(`export_dir`)는 **절대경로**로 말하는 게 안전하다. 상대경로로 하면 서버가 실행된 위치 기준으로 풀려서 엉뚱한 곳에 생길 수 있다.
 
-결과:
-- `signature-preview.html`
-- 로고 asset 복사본
+확인 포인트: 인삿말이 위, 맺음말이 아래, footer에 이름/부서/연락처가 제대로 채워지는지, HTML 줄바꿈/폰트/색상 깨짐 없는지.
 
-브라우저로 열어서 회사 서명처럼 보이는지 확인한다.
+### 6-3. 첫 초안 만들고 발송
 
-권장:
-- 예시 파일 4개를 저장한 직후 바로 `preview_signature`
-- logo 경로 수정 후 `preview_closing_signature(export_dir="...")`
-- 줄간격, 폰트, 로고 높이까지 확인
+> **"someone@example.com 한테 'MCP 테스트 메일' 제목으로 초안 하나 만들어줘. 본문은 '테스트입니다.' 기본 서명 다 적용해서."**
 
-## 8. 첫 초안 만들기
+AI가 `create_draft`로 초안을 만들고, 렌더링된 결과(`rendered_text_body` / `rendered_html_body`)를 보여준다.
 
-기본 템플릿들을 모두 `is_default=true`로 저장했다면 초안 작성 때 별도 ID를 안 넣어도 된다.
+내용을 확인한 뒤:
 
-예시:
+> **"좋아, 지금 보내줘."** → AI가 `send_draft_now`로 발송 (발송 전 한 번 확인을 거친다)
+> **"내일 오전 9시에 예약 발송해줘."** → AI가 `schedule_draft`로 예약
 
-```json
-{
-  "subject": "MCP 테스트 메일",
-  "to": ["someone@example.com"],
-  "text_body": "본문 초안입니다.",
-  "html_body": "<p>본문 초안입니다.</p>",
-  "apply_default_greeting_template": true,
-  "apply_default_closing_template": true,
-  "apply_default_signature": true,
-  "apply_default_signature_profile": true
-}
-```
+> 서버가 켜져 있어야 예약 시간에 자동 발송된다. 꺼져 있었다면 다시 "밀린 예약 메일 보내줘"라고 하면 된다(`dispatch_due_messages`).
 
-호출:
+### 6-4. 메일 조회·검색
 
-```text
-create_draft(...)
-```
+> **"안 읽은 메일 있어?"** → `get_unread_status`
+> **"받은편지함 최근 메일 보여줘."** → `list_messages`
+> **"제목에 '계약' 들어간 메일 찾아줘."** → `search_messages`
 
-이후 확인:
-- `get_draft(draft_id=...)`
-- 응답의 `rendered_text_body`, `rendered_html_body` 확인
+### 6-5. 메일 정리 (예: 주간보고 모으기)
 
-## 9. 특정 메일만 다른 톤 쓰기
+보낸메일함에 흩어진 같은 주제 메일을 한 메일함에 모을 수 있다. **복사 방식이라 보낸메일함 원본은 그대로 남는다.**
 
-기본값은 유지하고 특정 메일에서만 다른 템플릿을 쓰면 된다.
+> **"'주간보고'라는 메일함 만들고, 보낸메일함에서 제목에 '주간보고' 들어간 메일을 거기로 복사해줘."**
 
-방법:
-- `list_greeting_templates`, `list_closing_templates`, `list_signature_profiles`, `list_signatures`로 ID 조회
-- `create_draft` 또는 `update_draft`에 원하는 `*_id` 직접 지정
+AI가 순서대로 처리한다:
+1. `list_mailboxes` — 보낸메일함의 정확한 이름 확인
+2. `create_mailbox("주간보고")` — 새 메일함 생성
+3. `search_messages(subject_contains="주간보고")` — 대상 메일 찾기
+4. `copy_messages(...)` — 원본 유지하며 새 메일함으로 복사
 
-예시:
-- 대외 메일: 정중한 인삿말 템플릿 사용
-- 내부 메일: 짧은 인삿말 템플릿 사용
-- 영문 메일: 영문 프로필 + 영문 footer 사용
+> 원본까지 옮겨서 보낸메일함을 비우고 싶으면 "복사 말고 이동해줘"라고 하면 `move_messages`를 쓴다. 단 이동은 보낸메일함에서 원본이 사라진다(되돌리기 번거로움).
 
-기본값 해제/재적용:
-- `update_draft(clear_greeting_template=true)`
-- `update_draft(clear_closing_template=true)`
-- `update_draft(clear_signature=true)`
-- `update_draft(clear_signature_profile=true)`
-- `update_draft(apply_default_signature=true)`
+---
 
-## 10. 자주 생기는 실수
+## 자주 생기는 문제
 
-`placeholder`가 빈칸으로 나옴:
-- 프로필 `fields` 키와 템플릿 변수명이 다름
-- 예: 프로필은 `name`, 템플릿은 `{{display_name}}`
+**연결이 안 됨 / `imap_ready`나 `smtp_ready`가 false**
+- 1단계(그룹웨어 SMTP/IMAP 활성화)를 안 했다
+- `.env`의 아이디/비밀번호 오타
+- `UBISAM_ENV_FILE` 절대경로가 틀림
 
-로고가 안 나옴:
-- `logo_image_path` 오타
-- MCP 서버가 그 파일 경로에 접근 못 함
-- HTML 템플릿에 `{{company_logo_img}}` 없음
+**서명의 빈칸이 ` / `로 나옴**
+- 프로필에 `hanja_name` / `division_english` / `job_title_english`를 안 채웠다
+- 또는 프로필 키 이름과 템플릿 변수명이 다르다 (예: 프로필 `name`, 템플릿 `{{display_name}}`)
 
-초안에 서명이 안 붙음:
-- 기본값으로 저장 안 했거나 `apply_default_*`를 껐음
-- `signature`를 `closing_only`로 만들지 않았음
+**로고가 안 나옴**
+- `logo_image_path` 경로 오타 또는 서버가 그 파일에 접근 못 함
+- footer 템플릿에 `{{company_logo_img}}`가 없음
 
-`wrap_body` 생성 오류:
-- `mode="wrap_body"`에서는 `{{body}}` placeholder 필수
+**초안에 서명이 안 붙음**
+- 템플릿을 기본값(`is_default=true`)으로 저장 안 했거나 "기본 서명 적용"을 안 함
 
-발신자 이름이 예상과 다름:
-- 우선순위는 `create_draft/from_name` 직접값 -> 프로필의 `display_name` -> `.env`의 `UBISAM_DEFAULT_FROM_NAME`
+**미리보기 파일이 어디 생겼는지 모르겠음**
+- `export_dir`를 절대경로로 다시 지정한다
 
-## 11. 팀 권장 운영 방식
+---
 
-개인별로 최소 4개 기본 리소스 보유 권장:
-- 기본 인삿말 1개
-- 기본 맺음말 1개
-- 기본 프로필 1개
-- 기본 footer 1개
+## 빠른 시작 체크리스트
 
-추가로 있으면 좋은 것:
-- 외부 발송용 정중 버전
-- 내부 공유용 짧은 버전
-- 영문 버전
+1. 그룹웨어 SMTP/IMAP 활성화
+2. `python3 --version`으로 3.10+ 확인
+3. 압축 풀고 `pip install -e .`
+4. `cp .env.example .env` 후 내 계정값 입력
+5. AI 앱에 `UBISAM_ENV_FILE` 절대경로로 연결
+6. AI 앱 재시작
+7. "내 메일 설정 상태 확인해줘" → ready 확인
+8. 기본 프로필 / 인삿말 / 맺음말 / footer 서명 만들기
+9. "기본 서명 미리보기 보여줘"로 확인
+10. "초안 만들어줘" → 확인 → "보내줘"
 
-팀 공통 룰 권장:
-- 프로필 key 이름 통일
-- HTML 서명 폰트 통일
-- 로고 파일 경로 저장 위치 통일
-- `preview_signature` 확인 후 발송
-
-## 12. 빠른 시작 체크리스트
-
-1. `.env` 작성
-2. MCP 클라이언트에 `UBISAM_ENV_FILE` 연결
-3. `config_status`로 연결 확인
-4. `create_signature_profile(is_default=true)`
-5. `create_greeting_template(is_default=true)`
-6. `create_closing_template(is_default=true)`
-7. `create_signature(mode=\"closing_only\", is_default=true)`
-8. `preview_signature`
-9. `preview_closing_signature(export_dir=\"...\")`
-10. `create_draft`
-11. `get_draft`로 최종 확인
-
-이 순서로 한 번만 세팅하면 이후 초안 작성에서 기본값 자동 적용된다.
+한 번 세팅하면 이후엔 말로만 시키면 된다.

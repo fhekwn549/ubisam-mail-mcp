@@ -187,6 +187,24 @@ def move_messages(
 
 
 @mcp.tool()
+def copy_messages(
+    uids: list[str],
+    to_mailbox: str,
+    from_mailbox: str = "INBOX",
+) -> dict[str, Any]:
+    """Copy one or more IMAP messages to another mailbox/folder, leaving the originals in place."""
+    if not to_mailbox.strip():
+        raise ValueError("to_mailbox is required")
+    return {
+        "result": _imap().copy_messages(
+            from_mailbox=from_mailbox,
+            to_mailbox=to_mailbox.strip(),
+            uids=uids,
+        )
+    }
+
+
+@mcp.tool()
 def delete_messages(
     uids: list[str],
     mailbox: str = "INBOX",

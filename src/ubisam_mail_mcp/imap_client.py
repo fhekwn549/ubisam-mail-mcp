@@ -234,6 +234,26 @@ class ImapMailClient:
                     "moved": len(uids),
                 }
 
+    def copy_messages(
+        self,
+        *,
+        from_mailbox: str,
+        to_mailbox: str,
+        uids: list[str],
+    ) -> dict[str, Any]:
+        self._require_ready()
+        uid_set = _join_uid_set(uids)
+        with self._connect() as client:
+            with self._select_mailbox(client, from_mailbox, readonly=True):
+                copy_status, copy_data = client.uid("COPY", uid_set, to_mailbox)
+                _expect_ok(copy_status, copy_data, f"copy UIDs {uid_set} to mailbox {to_mailbox}")
+                return {
+                    "from_mailbox": from_mailbox,
+                    "to_mailbox": to_mailbox,
+                    "uids": uids,
+                    "copied": len(uids),
+                }
+
     def delete_messages(
         self,
         *,
