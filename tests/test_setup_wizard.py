@@ -155,6 +155,24 @@ def test_signature_template_omits_empty_optional_fields():
     assert " / " not in html_template
 
 
+def test_signature_template_uses_default_footer_scale_and_logo():
+    _text_template, html_template = _build_signature_templates(
+        {
+            "display_name": "홍길동",
+            "position": "사원",
+            "department": "로봇자동화사업부",
+            "office_phone": "02-1234-5678",
+            "email": "user@ubisam.com",
+            "logo_image_path": "/tmp/logo.png",
+        }
+    )
+
+    assert "{{company_logo_img}}" in html_template
+    assert "font-size:14px" in html_template
+    assert "font-size:12px" in html_template
+    assert "font-size:11px" in html_template
+
+
 def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     args = _parse_args(
@@ -192,10 +210,14 @@ def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
     assert result["env_file"] == str((tmp_path / ".env").resolve())
     assert "UBISAM_ENV_FILE" in result["codex_config"]
     repository = DraftRepository(tmp_path / "mail.db")
-    assert repository.get_default_signature_profile() is not None
+    profile = repository.get_default_signature_profile()
+    assert profile is not None
+    assert profile.logo_image_path.endswith("logo-color.png")
     assert repository.get_default_greeting_template() is not None
     assert repository.get_default_closing_template() is not None
-    assert repository.get_default_signature() is not None
+    signature = repository.get_default_signature()
+    assert signature is not None
+    assert "{{company_logo_img}}" in signature.html_template
 
 
 def test_web_setup_preflight_page_requires_confirmation():
@@ -241,6 +263,59 @@ def test_web_signature_page_uses_hanja_toggle():
     assert "preview.srcdoc" in html
     assert "signatureHtml" in html
     assert "비밀번호" not in html
+
+
+def test_web_setup_prefills_existing_env_and_signature_values(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    db_path = tmp_path / "mail.db"
+    env_file = tmp_path / ".env"
+    exit_code = main(
+        [
+            "--non-interactive",
+            "--skip-connection-check",
+            "--force",
+            "--env-file",
+            str(env_file),
+            "--email",
+            "user@ubisam.com",
+            "--password",
+            "secret",
+            "--from-name",
+            "홍길동",
+            "--db-path",
+            str(db_path),
+            "--department",
+            "로봇자동화사업부",
+            "--position",
+            "사원",
+            "--greeting-text",
+            "안녕하십니까.\n{{display_name}}입니다.",
+            "--closing-text",
+            "감사합니다.",
+        ]
+    )
+    assert exit_code == 0
+    args = _parse_args(["--web-setup"])
+
+    account_html = _web_account_form_html(args)
+    signature_html = _web_signature_form_html(
+        token="token",
+        values=SetupValues(
+            env_file=env_file,
+            email="user@ubisam.com",
+            password="secret",
+            from_name="홍길동",
+        ),
+        args=args,
+    )
+
+    assert 'value="user@ubisam.com"' in account_html
+    assert 'value="홍길동"' in account_html
+    assert "secret" not in account_html
+    assert 'value="로봇자동화사업부"' in signature_html
+    assert 'value="사원"' in signature_html
+    assert "안녕하십니까." in signature_html
+    assert "감사합니다." in signature_html
 
 
 def test_setup_wizard_refuses_existing_env_without_force(tmp_path):

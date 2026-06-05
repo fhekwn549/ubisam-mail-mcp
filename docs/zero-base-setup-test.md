@@ -66,6 +66,8 @@ ubisam-mail-mcp-setup --skip-signature-setup
 - 비밀번호는 `보기/숨기기` 토글로 확인 가능
 - 한자 이름은 체크박스를 켠 경우에만 입력
 - SMTP/IMAP host/port, DB 경로, 다운로드 폴더는 기본값으로 숨김 처리
+- footer에는 기본 회사 로고가 자동으로 들어감
+- setup을 다시 실행하면 기존 메일 주소/이름/서식 값은 채워지고 비밀번호만 다시 입력
 
 통과 기준:
 - `.env` 생성

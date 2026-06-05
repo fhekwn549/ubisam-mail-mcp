@@ -323,6 +323,9 @@ def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.Ba
             if self.path == "/assets/mcp-setting.png":
                 self._send_png(_setup_image_path())
                 return
+            if self.path == "/assets/logo-color.png":
+                self._send_png(_default_logo_asset_path())
+                return
             if self.path in {"/", "/index.html"}:
                 self._send_html(_web_preflight_html())
                 return
@@ -457,7 +460,7 @@ def _run_setup_from_web_payload(
         edit_templates=False,
         non_interactive=True,
     )
-    _write_env_file(values, force=args.force or payload.get("force") == "on")
+    _write_env_file(values, force=True)
     config = _build_config(values)
     if (
         not already_verified
@@ -480,6 +483,47 @@ def _required_payload(payload: dict[str, str], key: str, label: str) -> str:
     if not value:
         raise ValueError(f"{label} 필요")
     return value
+
+
+def _load_existing_setup_defaults(args: argparse.Namespace) -> dict[str, str]:
+    defaults: dict[str, str] = {}
+    env_file = Path(args.env_file).expanduser()
+    old_env_file = os.environ.get("UBISAM_ENV_FILE")
+    if env_file.is_file():
+        os.environ["UBISAM_ENV_FILE"] = str(env_file.resolve())
+    try:
+        config = AppConfig.from_env()
+    except Exception:
+        return defaults
+    finally:
+        if old_env_file is None:
+            os.environ.pop("UBISAM_ENV_FILE", None)
+        else:
+            os.environ["UBISAM_ENV_FILE"] = old_env_file
+
+    if config.default_from_address:
+        defaults["email"] = config.default_from_address
+    if config.default_from_name:
+        defaults["from_name"] = config.default_from_name
+        defaults["display_name"] = config.default_from_name
+    if not config.sqlite_path.expanduser().is_file():
+        return defaults
+
+    repository = DraftRepository(config.sqlite_path)
+    profile = repository.get_default_signature_profile()
+    if profile is not None:
+        defaults.update(profile.fields)
+        if profile.fields.get("email"):
+            defaults["email"] = profile.fields["email"]
+        if profile.fields.get("display_name"):
+            defaults["from_name"] = profile.fields["display_name"]
+    greeting = repository.get_default_greeting_template()
+    if greeting is not None:
+        defaults["greeting_text"] = greeting.text_template
+    closing = repository.get_default_closing_template()
+    if closing is not None:
+        defaults["closing_text"] = closing.text_template
+    return defaults
 
 
 def _web_preflight_html() -> str:
@@ -524,6 +568,7 @@ next.addEventListener("click", () => { window.location.href = "/account"; });
 
 
 def _web_account_form_html(args: argparse.Namespace) -> str:
+    defaults = _load_existing_setup_defaults(args)
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -554,9 +599,9 @@ code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
 <form method="post" action="/verify">
 <section class="panel">
 <div class="grid">
-<label>메일 주소</label><input name="email" type="email" required>
+<label>메일 주소</label><input name="email" type="email" value="{_esc(defaults.get("email", ""))}" required>
 <label>메일 비밀번호</label><div class="password-row"><input id="password" name="password" type="password" required><button class="secondary" type="button" id="togglePassword">보기</button></div>
-<label>그룹웨어 내 본인 이름</label><input name="from_name" required>
+<label>그룹웨어 내 본인 이름</label><input name="from_name" value="{_esc(defaults.get("from_name", ""))}" required>
 </div>
 <div class="actions"><button type="submit">계정 확인</button></div>
 <p class="hint">IMAP/SMTP 로그인을 검증한다. 성공하면 서명 설정 화면으로 넘어간다.</p>
@@ -578,6 +623,13 @@ togglePassword.addEventListener("click", () => {{
 
 
 def _web_signature_form_html(*, token: str, values: SetupValues, args: argparse.Namespace) -> str:
+    defaults = _load_existing_setup_defaults(args)
+    display_name = defaults.get("display_name") or values.from_name
+    greeting_text = defaults.get("greeting_text") or DEFAULT_GREETING_TEXT
+    closing_text = defaults.get("closing_text") or DEFAULT_CLOSING_TEXT
+    hanja_name = defaults.get("hanja_name", "")
+    hanja_checked = "checked" if hanja_name else ""
+    hanja_disabled = "" if hanja_name else "disabled"
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -616,22 +668,22 @@ button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6p
 <div class="layout">
 <section class="panel">
 <div class="grid">
-<label>서명 이름</label><input data-preview name="display_name" value="{_esc(values.from_name)}">
-<label>영문 이름</label><input data-preview name="english_name">
-<label>한자 이름</label><div class="inline-check"><input id="useHanja" type="checkbox"><input id="hanjaName" data-preview name="hanja_name" disabled></div>
-<label>부서</label><input data-preview name="department">
-<label>영문 부서</label><input data-preview name="division_english">
-<label>팀</label><input data-preview name="team">
-<label>직급</label><input data-preview name="position">
-<label>영문 직함</label><input data-preview name="job_title_english">
-<label>대표전화</label><input data-preview name="office_phone">
-<label>휴대폰</label><input data-preview name="mobile">
+<label>서명 이름</label><input data-preview name="display_name" value="{_esc(display_name)}">
+<label>영문 이름</label><input data-preview name="english_name" value="{_esc(defaults.get("english_name", ""))}">
+<label>한자 이름</label><div class="inline-check"><input id="useHanja" type="checkbox" {hanja_checked}><input id="hanjaName" data-preview name="hanja_name" value="{_esc(hanja_name)}" {hanja_disabled}></div>
+<label>부서</label><input data-preview name="department" value="{_esc(defaults.get("department", ""))}">
+<label>영문 부서</label><input data-preview name="division_english" value="{_esc(defaults.get("division_english", ""))}">
+<label>팀</label><input data-preview name="team" value="{_esc(defaults.get("team", ""))}">
+<label>직급</label><input data-preview name="position" value="{_esc(defaults.get("position", ""))}">
+<label>영문 직함</label><input data-preview name="job_title_english" value="{_esc(defaults.get("job_title_english", ""))}">
+<label>대표전화</label><input data-preview name="office_phone" value="{_esc(defaults.get("office_phone", ""))}">
+<label>휴대폰</label><input data-preview name="mobile" value="{_esc(defaults.get("mobile", ""))}">
 </div>
 <div class="section">
 <label>기본 인삿말</label>
-<textarea data-preview name="greeting_text">{_esc(DEFAULT_GREETING_TEXT)}</textarea>
+<textarea data-preview name="greeting_text">{_esc(greeting_text)}</textarea>
 <label>기본 맺음말</label>
-<textarea data-preview name="closing_text">{_esc(DEFAULT_CLOSING_TEXT)}</textarea>
+<textarea data-preview name="closing_text">{_esc(closing_text)}</textarea>
 </div>
 <div class="actions"><button type="submit">저장하고 완료</button></div>
 <p class="hint">빈 영문 이름, 한자 이름, 전화번호는 저장되는 footer 서명에서 자동으로 빠진다.</p>
@@ -660,13 +712,14 @@ function textBlock(text) {{
   return `<div style="line-height:1.5;font-size:16px;color:#222;">${{escapeHtml(text).replace(/\\n/g, "<br>")}}</div>`;
 }}
 function signatureHtml(nameHead, dept, contact) {{
-  const deptHtml = dept ? `<div style="margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;">${{escapeHtml(dept)}}</div>` : "";
-  const contactHtml = contact ? `<div style="margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;">${{contact}}</div>` : "";
+  const deptHtml = dept ? `<div style="margin-top:6px;font-size:12px;font-weight:700;line-height:1.16;color:#8a8a8a;">${{escapeHtml(dept)}}</div>` : "";
+  const contactHtml = contact ? `<div style="margin-top:8px;font-size:11px;line-height:1.22;color:#6f6f6f;">${{contact}}</div>` : "";
   return `
     <hr style="border:none;border-top:1px solid #cfcfcf;margin:0 0 14px 0;">
     <div style="font-family:'Malgun Gothic',sans-serif;color:#7c7c7c;">
-      <div style="font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;display:flex;align-items:flex-end;gap:14px;">
-        <span style="display:inline-block;line-height:1;transform:translateY(-4px);">${{escapeHtml(nameHead)}}</span>
+      <div style="font-size:14px;font-weight:700;line-height:1.08;color:#8a8a8a;display:flex;align-items:flex-end;gap:14px;">
+        <span style="display:inline-flex;align-items:flex-end;line-height:1;"><img src="/assets/logo-color.png" alt="company logo" style="height:28px;width:auto;display:block;"></span>
+        <span style="display:inline-block;line-height:1;transform:translateY(-2px);">${{escapeHtml(nameHead)}}</span>
       </div>
       ${{deptHtml}}
       ${{contactHtml}}
@@ -752,6 +805,17 @@ def _setup_image_path() -> Path:
     return Path(__file__).resolve().parent / "assets" / "mcp-setting.png"
 
 
+def _default_logo_image_path() -> str:
+    path = _default_logo_asset_path()
+    if path.is_file():
+        return str(path)
+    return ""
+
+
+def _default_logo_asset_path() -> Path:
+    return Path(__file__).resolve().parent / "assets" / "logo-color.png"
+
+
 def _setup_default_signature(
     config: AppConfig,
     *,
@@ -779,7 +843,7 @@ def _setup_default_signature(
     }
     greeting_text = args.greeting_text
     closing_text = args.closing_text
-    logo_image_path = args.logo_image_path
+    logo_image_path = args.logo_image_path or _default_logo_image_path()
     if args.signature_gui and not args.non_interactive:
         fields, greeting_text, closing_text, logo_image_path = _run_signature_gui(
             fields=fields,
@@ -874,21 +938,21 @@ def _build_signature_templates(fields: dict[str, str]) -> tuple[str, str]:
         '<div style="font-family:\'Malgun Gothic\',sans-serif;color:#7c7c7c;">',
     ]
     html_parts.append(
-        '  <div style="font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;'
+        '  <div style="font-size:14px;font-weight:700;line-height:1.08;color:#8a8a8a;'
         'display:flex;align-items:flex-end;gap:14px;">'
         f"{logo_html}"
-        '    <span style="display:inline-block;line-height:1;transform:translateY(-4px);">'
+        '    <span style="display:inline-block;line-height:1;transform:translateY(-2px);">'
         f"{name_head}</span>"
         "  </div>"
     )
     if department_line:
         html_parts.append(
-            '  <div style="margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;">'
+            '  <div style="margin-top:6px;font-size:12px;font-weight:700;line-height:1.16;color:#8a8a8a;">'
             f"{department_line}</div>"
         )
     if contact_line:
         html_parts.append(
-            '  <div style="margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;">'
+            '  <div style="margin-top:8px;font-size:11px;line-height:1.22;color:#6f6f6f;">'
             f"{_html_contact_line(fields)}"
             "  </div>"
         )
