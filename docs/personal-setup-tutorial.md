@@ -56,7 +56,9 @@ python3 --version
 ```
 
 - `Python 3.10.x` 이상이 나오면 통과.
-- 안 나오거나 3.10 미만이면 [python.org](https://www.python.org/downloads/)에서 최신 버전을 먼저 설치한다.
+- 안 나오거나 3.10 미만이면 [python.org](https://www.python.org/downloads/)에서 Python 3.10 이상을 먼저 설치한다.
+- Python이 아예 없는 PC는 Python 3.12 또는 3.13 설치를 권장한다. 너무 최신 버전이 부담되면 3.12가 보수적 선택이다.
+- Windows에서 여러 버전이 설치돼 있으면 PowerShell에서 `py --list`로 확인한다.
 
 ### 2-2. 레포 받기 / 설치
 
@@ -71,7 +73,28 @@ pip install -e .
 
 `pip install -e .`가 끝나면 `ubisam-mail-mcp`라는 실행 명령이 생긴다. 이게 AI와 메일을 잇는 서버다.
 
-> Windows에서 가상환경 활성화는 `source .venv/bin/activate` 대신 `.venv\Scripts\activate`.
+> Windows에서 여러 Python 버전이 있으면 사용할 버전을 명시한다. 예: `py -3.12 -m venv .venv`.
+> 가상환경 활성화는 `source .venv/bin/activate` 대신 `.venv\Scripts\Activate.ps1`.
+> `.venv`는 Python 버전을 올려주지 않는다. 기존 `.venv`를 3.9 이하로 만들었다면 삭제 후 새 Python으로 다시 만든다.
+
+Windows PowerShell 예시:
+
+```powershell
+py --list
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+python -m pip install -e .
+```
+
+기존 `.venv`를 다시 만들 때:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
 
 ---
 

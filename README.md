@@ -2,7 +2,7 @@
 
 ## 사전 준비 (필수)
 
-1. **Python 3.10 이상 + pip** — 확인: `python3 --version`. 3.10 미만이면 동작하지 않으니 먼저 3.10+를 설치한다. (가상환경 venv는 선택 사항이며 파이썬 버전을 바꿔주지 않는다.)
+1. **Python 3.10 이상 + pip** — 확인: `python3 --version` 또는 Windows PowerShell에서 `py --list`. 3.10 미만이면 동작하지 않으니 먼저 3.10+를 설치한다. Python이 아예 없는 PC는 3.12 또는 3.13 설치를 권장한다. (가상환경 venv는 파이썬 버전을 바꿔주지 않고, 선택한 Python으로 격리 환경을 만든다.)
 2. **유비샘 그룹웨어에서 외부 메일 연동 활성화**:
    > **유비샘 그룹웨어 → 메일 → 환경설정 → SMTP-POP3-IMAP → SMTP/IMAP** 페이지에서 사용을 활성화한다.
 
@@ -118,6 +118,25 @@ cd ubisam-mail-mcp
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ubisam-mail-mcp          # stdio MCP 서버 시작
+```
+
+Windows에서 여러 Python 버전이 설치돼 있으면 사용할 버전을 명시해 venv를 만든다:
+
+```powershell
+py --list
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+python -m pip install -e .
+```
+
+이미 `.venv`를 Python 3.9 이하로 만든 상태라면 Python만 새로 설치해도 기존 `.venv`는 바뀌지 않는다. 삭제 후 다시 만든다:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
 ```
 
 처음 사용자라면 `.env`를 직접 편집하지 말고 setup wizard를 먼저 실행한다:
