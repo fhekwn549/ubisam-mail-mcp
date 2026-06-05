@@ -33,7 +33,7 @@ from .smtp_client import _SmtpSslWithServername, _close_smtp_session, _smtp_logi
 DEFAULT_HOST = "ubisam.hanbiro.net"
 DEFAULT_SMTP_PORT = 587
 DEFAULT_IMAP_PORT = 993
-DEFAULT_DB_PATH = "$HOME/.local/share/ubisam-mail-mcp/mail.db"
+DEFAULT_DB_PATH = "data/mail.db"
 DEFAULT_DOWNLOAD_DIR = "downloads"
 DEFAULT_CONTACTS_PATH = "data/contacts.local.json"
 
@@ -152,6 +152,20 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _resolve_db_path(db_path: str, env_file: Path) -> str:
+    """기본(상대) db 경로를 .env 위치 기준 절대경로로 변환한다.
+
+    상대 경로(예: 기본값 ``data/mail.db``)는 ``.env``가 있는 mcp 폴더 안으로 풀어
+    서버 작업 디렉토리와 무관하게 같은 위치를 가리키게 한다. 사용자가 명시한
+    절대경로나 ``~``/``$VAR`` 경로는 확장만 하고 그대로 둔다.
+    """
+    expanded = os.path.expanduser(os.path.expandvars(db_path))
+    path = Path(expanded)
+    if not path.is_absolute():
+        path = env_file.parent / path
+    return str(path.resolve())
+
+
 def _collect_values(args: argparse.Namespace) -> SetupValues:
     env_file = Path(args.env_file).expanduser().resolve()
     email = args.email or _prompt("메일 주소", required=True, non_interactive=args.non_interactive)
@@ -174,7 +188,7 @@ def _collect_values(args: argparse.Namespace) -> SetupValues:
         imap_host=args.imap_host,
         imap_port=args.imap_port,
         imap_use_tls=not args.imap_no_tls,
-        db_path=args.db_path,
+        db_path=_resolve_db_path(args.db_path, env_file),
         download_dir=args.download_dir,
         contacts_path=args.contacts_path,
     )
@@ -402,8 +416,9 @@ def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.Ba
 
 
 def _values_from_web_account_payload(payload: dict[str, str], *, args: argparse.Namespace) -> SetupValues:
+    env_file = Path(payload.get("env_file") or args.env_file).expanduser().resolve()
     return SetupValues(
-        env_file=Path(payload.get("env_file") or args.env_file).expanduser().resolve(),
+        env_file=env_file,
         email=_required_payload(payload, "email", "메일 주소"),
         password=_required_payload(payload, "password", "메일 비밀번호"),
         from_name=_required_payload(payload, "from_name", "그룹웨어 내 본인 이름"),
@@ -414,7 +429,7 @@ def _values_from_web_account_payload(payload: dict[str, str], *, args: argparse.
         imap_host=args.imap_host,
         imap_port=args.imap_port,
         imap_use_tls=not args.imap_no_tls,
-        db_path=args.db_path,
+        db_path=_resolve_db_path(args.db_path, env_file),
         download_dir=args.download_dir,
         contacts_path=args.contacts_path,
     )
@@ -473,6 +488,7 @@ def _run_setup_from_web_payload(
         _setup_default_signature(config, values=values, args=setup_args)
     return {
         "env_file": str(values.env_file),
+        "db_path": str(values.db_path),
         "command_path": str(_entrypoint_path()),
         "codex_config": _codex_config_snippet(values.env_file),
         "claude_command": _claude_command_snippet(values.env_file),
@@ -757,6 +773,7 @@ refresh();
 
 def _web_success_html(result: dict[str, str]) -> str:
     env_file = _esc(result["env_file"])
+    db_path = _esc(result.get("db_path", ""))
     command_path = _esc(result["command_path"])
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><title>setup complete</title>
@@ -764,15 +781,16 @@ def _web_success_html(result: dict[str, str]) -> str:
 <body>
 <h1>설정 완료</h1>
 <p><code>.env</code> 저장 위치: <code>{env_file}</code></p>
+<p>데이터 DB(인삿말·맺음말·서명·초안): <code>{db_path}</code></p>
 <h2>Claude Code</h2>
 <p>아래 명령을 터미널에 한 줄로 입력하세요.</p>
 <pre>{_esc(result["claude_command"])}</pre>
 <h2>Claude Desktop</h2>
 <p>앱 메뉴 <code>Settings → Developer → Edit Config</code>로 <code>claude_desktop_config.json</code>을 엽니다. 파일이 비어 있으면 아래 내용을 그대로, 기존 내용이 있으면 <code>mcpServers</code> 블록만 같은 최상위에 추가한 뒤 저장하고, 앱을 완전히 종료(트레이 아이콘 우클릭 → Quit)했다 다시 실행하세요.</p>
 <pre>{_esc(result["claude_desktop_config"])}</pre>
-<h2>Codex</h2>
-<p>Codex Desktop 앱은 Claude Desktop과 같은 <code>command</code>와 <code>UBISAM_ENV_FILE</code> 값을 씁니다. 차이는 Claude Desktop은 JSON, Codex Desktop은 TOML 형식으로 저장한다는 점뿐입니다.</p>
-<p>Codex Desktop에서 <code>Settings → Configuration → Open config.toml</code>을 열거나, 터미널에서 <code>nano ~/.codex/config.toml</code>을 실행한 뒤 아래 내용을 붙여넣고 저장하세요.</p>
+<h2>Codex (Desktop/CLI)</h2>
+<p>Codex Desktop과 Codex CLI는 같은 <code>~/.codex/config.toml</code>을 공유하므로 아래 예시 하나로 둘 다 됩니다. command와 <code>UBISAM_ENV_FILE</code> 값은 Claude Desktop과 같고, 형식만 JSON 대신 TOML입니다.</p>
+<p>Codex Desktop은 <code>Settings → Configuration → Open config.toml</code>로, Codex CLI는 터미널에서 <code>nano ~/.codex/config.toml</code>로 열어 아래 내용을 붙여넣고 저장하세요.</p>
 <pre>{_esc(result["codex_config"])}</pre>
 <p>설정 후 Claude/Codex를 재시작하고 <code>내 메일 설정 상태 확인해줘.</code>라고 입력하세요.</p>
 <p>command 절대경로: <code>{command_path}</code></p>

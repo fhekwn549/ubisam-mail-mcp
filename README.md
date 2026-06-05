@@ -109,7 +109,9 @@
 
 공식 MCP Python SDK(`mcp`) 기반의 표준 stdio MCP 서버다. 의존성을 설치하면 `ubisam-mail-mcp` 진입점이 생긴다(가상환경 권장):
 
-초보자용 전체 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md)를 따른다. 핵심 설치 명령만 요약하면 다음과 같다.
+초보자용 전체 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md)를 따른다.
+
+가장 간단한 방법은 clone 후 **OS별 원클릭 스크립트**다(Python 탐색·`.venv`·설치·setup wizard까지 자동): Windows는 `powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1`, Ubuntu/WSL은 `bash scripts/setup.sh`. 아래는 수동으로 할 때의 핵심 명령 요약이다.
 
 Desktop 앱용 Windows PowerShell:
 
@@ -117,7 +119,7 @@ Desktop 앱용 Windows PowerShell:
 git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
 cd ubisam-mail-mcp
 py --list
-py -3.12 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python --version
 python -m pip install -e .
@@ -135,7 +137,7 @@ python -m pip install -e .
 ubisam-mail-mcp          # stdio MCP 서버 시작(테스트용, Ctrl+C 종료)
 ```
 
-Python/Git 설치, 여러 Python 버전 선택, 기존 `.venv` 재생성 같은 자세한 설명은 [처음 사용 가이드](docs/personal-setup-tutorial.md#2단계-프로그램-설치)에 있다.
+Python/Git 설치, 여러 Python 버전 선택, 기존 `.venv` 재생성 같은 자세한 설명은 [처음 사용 가이드](docs/personal-setup-tutorial.md#1단계-프로그램-설치)에 있다.
 
 처음 사용자라면 `.env`를 직접 편집하지 말고 setup wizard를 먼저 실행한다:
 
@@ -154,7 +156,7 @@ wizard가 처리하는 것:
 `UBISAM_ENV_FILE`은 MCP 서버가 어느 `.env` 파일을 읽을지 알려주는 값이다. setup 완료 페이지의 Claude/Codex 예시를 그대로 붙여 넣으면 된다.
 Claude Code 예시는 터미널에 한 줄로 입력한다. Codex 예시는 `nano ~/.codex/config.toml`로 설정 파일을 열고 붙여 넣는다.
 
-웹 setup 화면은 일반 사용자에게 필요한 값만 보여준다. 경로, DB, SMTP/IMAP host/port는 기본값으로 처리한다. 비밀번호는 보기/숨기기 토글이 있고, 한자 이름은 사용할 때만 체크해서 입력한다.
+웹 setup 화면은 일반 사용자에게 필요한 값만 보여준다. 경로, DB, SMTP/IMAP host/port는 기본값으로 처리한다. 로컬 DB는 기본적으로 프로젝트 폴더 안 `data/mail.db`에 생성되며(절대경로로 `.env`의 `UBISAM_MAIL_MCP_DB`에 기록), 다른 위치를 쓰려면 setup 시 `--db-path`로 지정한다. 비밀번호는 보기/숨기기 토글이 있고, 한자 이름은 사용할 때만 체크해서 입력한다.
 재실행하면 기존 `.env`와 로컬 DB에서 메일 주소, 이름, 서명 값, 인삿말/맺음말을 다시 채운다. 비밀번호는 보안상 다시 입력한다. footer에는 기본 회사 로고가 자동 포함되고, 글자 크기는 로컬 footer 기준으로 맞춘다.
 
 GUI 없는 서버나 브라우저를 못 여는 환경에서는 터미널 wizard를 쓴다:
@@ -202,7 +204,7 @@ PYTHONPATH=src python3 -m ubisam_mail_mcp.server
 
 표준 stdio transport라 MCP를 지원하는 모든 agent(Claude Code, Claude Desktop, Codex 등)에서 같은 방식으로 붙는다. 클라이언트는 임의 디렉토리에서 서버를 실행하므로 `UBISAM_ENV_FILE`로 `.env` 절대경로를 지정한다. `command`는 PATH에 진입점이 없으면 절대경로로 적는다(가상환경이면 `/absolute/path/to/ubisam-mail-mcp/.venv/bin/ubisam-mail-mcp`).
 
-Claude Desktop, Codex Desktop, Claude Code 설정 예시는 setup wizard 완료 페이지에 출력된다. 초보자용 클라이언트 연결 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md#4단계-ai-앱mcp-클라이언트에-연결)에 모아 둔다.
+Claude Desktop, Codex(Desktop·CLI), Claude Code 설정 예시는 setup wizard 완료 페이지에 출력된다. Codex Desktop과 Codex CLI는 같은 `~/.codex/config.toml`을 공유하므로 같은 예시를 그대로 쓰면 된다. 초보자용 클라이언트 연결 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md#3단계-ai-앱mcp-클라이언트에-연결)에 모아 둔다.
 
 설명:
 - 설정은 MCP 실행 경로만 잡는다. 실제 계정값은 `.env`에서 자동 로드한다.

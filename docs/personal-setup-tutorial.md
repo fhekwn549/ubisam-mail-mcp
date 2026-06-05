@@ -34,6 +34,30 @@ AI에게 한국어로 말만 하면 메일을 정리·작성·발송하도록 �
 
 ## 1단계. 프로그램 설치
 
+### 1-0. 원클릭 설치 (권장)
+
+레포를 clone 한 뒤, **자기 환경에 맞는 스크립트 하나만** 실행하면 Python 탐색·`.venv` 생성·설치·setup wizard(`--web-setup`)까지 한 번에 끝난다. (즉 아래 1-1~1-2와 2단계를 자동 처리)
+
+Claude Desktop·Codex Desktop 같은 **Windows 데스크톱 앱**:
+
+```powershell
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
+cd ubisam-mail-mcp
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+```
+
+Claude Code·Codex CLI 같은 **Ubuntu/WSL 터미널**:
+
+```bash
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
+cd ubisam-mail-mcp
+bash scripts/setup.sh
+```
+
+- 스크립트는 Python 3.10+를 자동으로 찾고, 없으면 설치 명령을 안내한다.
+- Git이 없으면 먼저 설치한다: Windows `winget install Git.Git` / Ubuntu `sudo apt install -y git`.
+- 스크립트가 막히거나 단계를 직접 보고 싶으면 아래 수동 절차(1-1~2단계)를 따른다.
+
 ### 1-1. Python 3.10 이상 확인
 
 터미널(Windows는 PowerShell, Mac은 터미널 앱)을 열고:
@@ -55,7 +79,7 @@ Claude Desktop이나 Codex Desktop 같은 **Windows 데스크톱 앱**에 붙일
 git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
 cd ubisam-mail-mcp
 py --list
-py -3.12 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python --version
 python -m pip install -e .
@@ -82,7 +106,8 @@ python -m pip install -e .
 
 `pip install -e .`가 끝나면 `ubisam-mail-mcp`라는 실행 명령이 생긴다. 이게 AI와 메일을 잇는 서버다.
 
-> Windows에서 여러 Python 버전이 있으면 사용할 버전을 명시한다. 예: `py -3.12 -m venv .venv`.
+> 필요한 Python은 3.10 이상이다(3.11, 3.12 등 모두 가능). `py -3`는 설치된 최신 3.x를 잡는다.
+> `python --version`으로 3.10 이상인지 확인하고, 최신이 3.10 미만이면 `py -3.12`처럼 버전을 명시해서 만든다.
 > 가상환경 활성화는 `source .venv/bin/activate` 대신 `.venv\Scripts\Activate.ps1`.
 > `.venv`는 Python 버전을 올려주지 않는다. 기존 `.venv`를 3.9 이하로 만들었다면 삭제 후 새 Python으로 다시 만든다.
 
@@ -90,7 +115,7 @@ Windows PowerShell 예시:
 
 ```powershell
 py --list
-py -3.12 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python --version
 python -m pip install -e .
@@ -100,7 +125,7 @@ python -m pip install -e .
 
 ```powershell
 Remove-Item -Recurse -Force .venv
-py -3.12 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
 ```
@@ -111,10 +136,12 @@ python -m pip install -e .
 
 setup wizard가 외부 메일 활성화 안내, 계정 입력, IMAP/SMTP 검증, `.env` 생성, 기본 인삿말/맺음말/footer 서명 설정까지 처리한다. 화면 안내대로 진행하면 된다.
 
+> 1-0의 원클릭 스크립트를 실행했다면 wizard가 이미 떠 있으니 이 단계는 건너뛴다. 수동으로 따로 실행할 때만 아래를 쓴다.
+
 Windows PowerShell:
 
 ```powershell
-.\.venv\Scripts\ubisam-mail-mcp-setup.exe --web-setup
+python -m ubisam_mail_mcp.setup_wizard --web-setup
 ```
 
 Ubuntu/WSL:
@@ -127,6 +154,7 @@ ubisam-mail-mcp-setup --web-setup
 완료 화면에 Claude/Codex에 붙여 넣을 설정 예시가 나온다. 여기서 `command`와 `UBISAM_ENV_FILE` 경로를 다음 단계에 사용한다.
 
 > `.env`에는 비밀번호가 들어간다. 다른 사람과 공유하거나 외부에 올리지 않는다.
+> 인삿말·맺음말·서명·초안 같은 데이터는 프로젝트 폴더 안 `data/mail.db`(로컬 SQLite)에 저장된다. `.env`와 함께 백업하면 설정이 보존된다.
 
 ---
 
@@ -165,9 +193,9 @@ claude mcp add ubisam-mail \
 
 > 등록 후에는 Claude Code를 한 번 재시작해야 메일 기능이 대화에 나타난다.
 
-### Codex Desktop을 쓰는 경우
+### Codex Desktop/CLI를 쓰는 경우
 
-Codex Desktop → **Settings → Configuration → Open config.toml**을 열거나, `~/.codex/config.toml`에 아래를 넣는다:
+Codex Desktop과 Codex CLI는 같은 `~/.codex/config.toml`을 공유한다. Codex Desktop은 **Settings → Configuration → Open config.toml**로 열고, Codex CLI는 `~/.codex/config.toml`을 직접 편집해 아래를 넣는다(둘 다 내용 동일):
 
 ```toml
 [mcp_servers.ubisam_mail]
@@ -219,40 +247,13 @@ config_status()
 
 ## 5단계. 사용 시작
 
-setup wizard에서 계정과 기본 서명 설정을 마쳤으면, 이후에는 AI에게 평소 말하듯 요청하면 된다.
+setup wizard에서 계정과 기본 서명 설정을 마쳤으면, 이후에는 AI에게 평소 말하듯 요청하면 된다. wizard가 기본 프로필·인삿말·맺음말·footer 서명까지 자동으로 만들어 두므로, 바로 초안 작성부터 시작할 수 있다.
 
-### 5-1. 첫 초안 만들고 발송
+실제로 어떤 말이 어떤 tool 호출로 이어지는지는 짝꿍 문서에 예문으로 정리해 두었다.
 
-> **"someone@example.com 한테 'MCP 테스트 메일' 제목으로 초안 하나 만들어줘. 본문은 '테스트입니다.' 기본 서명 다 적용해서."**
+➡ **[personal-setup-tool-call-examples.md](personal-setup-tool-call-examples.md)** — 자연어 요청 ↔ tool 호출 예문 모음
 
-AI가 `create_draft`로 초안을 만들고, 렌더링된 결과(`rendered_text_body` / `rendered_html_body`)를 보여준다.
-
-내용을 확인한 뒤:
-
-> **"좋아, 지금 보내줘."** → AI가 `send_draft_now`로 발송 (발송 전 한 번 확인을 거친다)
-> **"내일 오전 9시에 예약 발송해줘."** → AI가 `schedule_draft`로 예약
-
-> 서버가 켜져 있어야 예약 시간에 자동 발송된다. 꺼져 있었다면 다시 "밀린 예약 메일 보내줘"라고 하면 된다(`dispatch_due_messages`).
-
-### 5-2. 메일 조회·검색
-
-> **"안 읽은 메일 있어?"** → `get_unread_status`
-> **"받은편지함 최근 메일 보여줘."** → `list_messages`
-> **"제목에 '계약' 들어간 메일 찾아줘."** → `search_messages`
-
-### 5-3. 메일 정리 (예: 주간보고 모으기)
-
-보낸메일함에 흩어진 같은 주제 메일을 한 메일함에 모을 수 있다. **복사 방식이라 보낸메일함 원본은 그대로 남는다.**
-
-> **"'주간보고'라는 메일함 만들고, 보낸메일함에서 제목에 '주간보고' 들어간 메일을 거기로 복사해줘."**
-
-AI가 순서대로 처리한다:
-1. `list_mailboxes` — 보낸메일함의 정확한 이름 확인
-2. `create_mailbox("주간보고")` — 새 메일함 생성
-3. `search_messages(subject_contains="주간보고")` — 대상 메일 찾기
-4. `copy_messages(...)` — 원본 유지하며 새 메일함으로 복사
-
-> 원본까지 옮겨서 보낸메일함을 비우고 싶으면 "복사 말고 이동해줘"라고 하면 `move_messages`를 쓴다. 단 이동은 보낸메일함에서 원본이 사라진다(되돌리기 번거로움).
+이 문서에 기본값 확인, 미리보기, 첫 초안 작성·발송·예약, 메일 조회·검색, 메일 정리, 기본값 수정까지 단계별 예문이 들어 있다.
 
 ---
 
