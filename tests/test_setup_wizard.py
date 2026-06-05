@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ubisam_mail_mcp.repository import DraftRepository
-from ubisam_mail_mcp.setup_wizard import main
+from ubisam_mail_mcp.setup_wizard import _build_signature_templates, _parse_args, _run_setup_from_web_payload, main
 
 
 def test_setup_wizard_writes_env_and_skips_signature_setup(tmp_path, monkeypatch):
@@ -121,6 +121,71 @@ def test_setup_wizard_accepts_multiline_template_arguments(tmp_path, monkeypatch
     assert greeting.text_template == "안녕하십니까.\n홍길동입니다."
     assert closing is not None
     assert closing.text_template == "확인 부탁드립니다.\n\n감사합니다."
+
+
+def test_signature_template_omits_empty_optional_fields():
+    text_template, html_template = _build_signature_templates(
+        {
+            "display_name": "홍길동",
+            "english_name": "",
+            "hanja_name": "",
+            "department": "로봇자동화사업부",
+            "division_english": "",
+            "job_title_english": "",
+            "position": "사원",
+            "office_phone": "",
+            "mobile": "",
+            "email": "user@ubisam.com",
+        }
+    )
+
+    assert text_template == "{{display_name}} {{position}}\n{{department}}\ne {{email}}"
+    assert "hanja_name" not in text_template
+    assert "english_name" not in text_template
+    assert " / " not in html_template
+
+
+def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    args = _parse_args(
+        [
+            "--web-setup",
+            "--force",
+            "--skip-connection-check",
+            "--env-file",
+            str(tmp_path / ".env"),
+            "--db-path",
+            str(tmp_path / "mail.db"),
+            "--preview-dir",
+            str(tmp_path / "preview"),
+        ]
+    )
+
+    result = _run_setup_from_web_payload(
+        {
+            "email": "user@ubisam.com",
+            "password": "secret",
+            "from_name": "홍길동",
+            "env_file": str(tmp_path / ".env"),
+            "db_path": str(tmp_path / "mail.db"),
+            "preview_dir": str(tmp_path / "preview"),
+            "skip_connection_check": "on",
+            "display_name": "홍길동",
+            "department": "로봇자동화사업부",
+            "position": "사원",
+            "greeting_text": "안녕하십니까.\n{{display_name}}입니다.",
+            "closing_text": "감사합니다.",
+        },
+        args=args,
+    )
+
+    assert result["env_file"] == str((tmp_path / ".env").resolve())
+    assert "UBISAM_ENV_FILE" in result["codex_config"]
+    repository = DraftRepository(tmp_path / "mail.db")
+    assert repository.get_default_signature_profile() is not None
+    assert repository.get_default_greeting_template() is not None
+    assert repository.get_default_closing_template() is not None
+    assert repository.get_default_signature() is not None
 
 
 def test_setup_wizard_refuses_existing_env_without_force(tmp_path):

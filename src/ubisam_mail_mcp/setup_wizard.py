@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import html
+import http.server
 import os
+import re
 import shlex
 import shutil
 import smtplib
@@ -10,9 +13,12 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import threading
+import urllib.parse
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Sequence
 
 from .config import AppConfig
@@ -31,28 +37,7 @@ DEFAULT_CONTACTS_PATH = "data/contacts.local.json"
 
 DEFAULT_GREETING_TEXT = "안녕하십니까.\n{{department}} {{team}} {{display_name}} {{position}}입니다."
 DEFAULT_CLOSING_TEXT = "확인 부탁드립니다.\n\n감사합니다."
-DEFAULT_SIGNATURE_TEXT = (
-    "{{display_name}} {{position}} / {{english_name}} / {{hanja_name}}\n"
-    "{{department}} / {{division_english}} / {{job_title_english}}\n"
-    "t {{office_phone}}  m {{mobile}}  e {{email}}"
-)
-DEFAULT_SIGNATURE_HTML = (
-    '<hr style="border:none;border-top:1px solid #cfcfcf;margin:0 0 14px 0;">'
-    '<div style="font-family:\'Malgun Gothic\',sans-serif;color:#7c7c7c;">'
-    '  <div style="font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;'
-    'display:flex;align-items:flex-end;gap:14px;">'
-    '    <span style="display:inline-flex;align-items:flex-end;line-height:1;">{{company_logo_img}}</span>'
-    '    <span style="display:inline-block;line-height:1;transform:translateY(-4px);">'
-    "{{display_name}} {{position}} / {{english_name}} / {{hanja_name}}</span>"
-    "  </div>"
-    '  <div style="margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;">'
-    "{{department}} / {{division_english}} / {{job_title_english}}</div>"
-    '  <div style="margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;">'
-    '    <strong style="color:#222;">t</strong> {{office_phone}} &nbsp;&nbsp;'
-    '    <strong style="color:#222;">m</strong> {{mobile}} &nbsp;&nbsp;'
-    '    <strong style="color:#222;">e</strong> {{email}}'
-    "  </div></div>"
-)
+_PLACEHOLDER_RE = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
 
 
 @dataclass(slots=True)
@@ -81,6 +66,8 @@ class _NoopSender:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
+        if args.web_setup:
+            return _run_web_setup(args)
         values = _collect_values(args)
         _write_env_file(values, force=args.force)
         config = _build_config(values)
@@ -125,7 +112,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--env-file", default=".env", help="생성할 .env 경로. 기본: .env")
     parser.add_argument("--email", help="유비샘 메일 주소")
     parser.add_argument("--password", help="메일 비밀번호. 미지정 시 숨김 입력")
-    parser.add_argument("--from-name", help="보내는 사람 표시 이름")
+    parser.add_argument("--from-name", help="그룹웨어 내 본인 이름")
     parser.add_argument("--smtp-host", default=DEFAULT_HOST)
     parser.add_argument("--smtp-port", type=int, default=DEFAULT_SMTP_PORT)
     parser.add_argument("--smtp-use-tls", action="store_true", help="SMTP 465 implicit TLS 사용")
@@ -141,6 +128,10 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--skip-signature-setup", action="store_true", help="기본 서식 설정 생략")
     parser.add_argument("--non-interactive", action="store_true", help="프롬프트 없이 인자로만 실행")
     parser.add_argument("--edit-templates", action="store_true", help="인삿말/맺음말을 에디터에서 여러 줄 편집")
+    parser.add_argument("--signature-gui", action="store_true", help="팝업 창에서 서식 값을 입력하고 실시간 미리보기")
+    parser.add_argument("--web-setup", action="store_true", help="로컬 웹페이지에서 계정/서식 설정")
+    parser.add_argument("--web-host", default="127.0.0.1", help="web setup bind host. 기본: 127.0.0.1")
+    parser.add_argument("--web-port", type=int, default=8765, help="web setup port. 기본: 8765")
     parser.add_argument("--greeting-text", default=DEFAULT_GREETING_TEXT)
     parser.add_argument("--closing-text", default=DEFAULT_CLOSING_TEXT)
     parser.add_argument("--display-name", help="서명 이름")
@@ -164,7 +155,7 @@ def _collect_values(args: argparse.Namespace) -> SetupValues:
     email = args.email or _prompt("메일 주소", required=True, non_interactive=args.non_interactive)
     password = args.password or _prompt_password(non_interactive=args.non_interactive)
     from_name = args.from_name or _prompt(
-        "보내는 사람 표시 이름",
+        "그룹웨어 내 본인 이름",
         default=args.display_name or "",
         required=True,
         non_interactive=args.non_interactive,
@@ -307,6 +298,303 @@ def _probe_smtp(config: AppConfig) -> None:
         _close_smtp_session(smtp)
 
 
+def _run_web_setup(args: argparse.Namespace) -> int:
+    server = http.server.ThreadingHTTPServer(
+        (args.web_host, args.web_port),
+        _make_setup_request_handler(args),
+    )
+    url = f"http://{args.web_host}:{server.server_port}/"
+    print(f"setup 웹페이지: {url}")
+    print("브라우저가 자동으로 열리지 않으면 위 주소를 직접 여세요.")
+    if args.web_host in {"127.0.0.1", "localhost"}:
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+    return int(getattr(server, "exit_code", 0))
+
+
+def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.BaseHTTPRequestHandler]:
+    class SetupRequestHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if self.path not in {"/", "/index.html"}:
+                self.send_error(404)
+                return
+            self._send_html(_web_form_html(args))
+
+        def do_POST(self) -> None:
+            if self.path != "/setup":
+                self.send_error(404)
+                return
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                raw_body = self.rfile.read(content_length).decode("utf-8")
+                payload = {
+                    key: values[-1]
+                    for key, values in urllib.parse.parse_qs(raw_body, keep_blank_values=True).items()
+                }
+                result = _run_setup_from_web_payload(payload, args=args)
+                self.server.exit_code = 0  # type: ignore[attr-defined]
+                self._send_html(_web_success_html(result))
+            except Exception as exc:
+                self.server.exit_code = 1  # type: ignore[attr-defined]
+                self._send_html(_web_error_html(exc), status=400)
+            finally:
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+
+        def log_message(self, format: str, *args) -> None:
+            return
+
+        def _send_html(self, body: str, *, status: int = 200) -> None:
+            encoded = body.encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+    return SetupRequestHandler
+
+
+def _run_setup_from_web_payload(payload: dict[str, str], *, args: argparse.Namespace) -> dict[str, str]:
+    values = SetupValues(
+        env_file=Path(payload.get("env_file") or args.env_file).expanduser().resolve(),
+        email=_required_payload(payload, "email", "메일 주소"),
+        password=_required_payload(payload, "password", "메일 비밀번호"),
+        from_name=_required_payload(payload, "from_name", "그룹웨어 내 본인 이름"),
+        smtp_host=payload.get("smtp_host") or args.smtp_host,
+        smtp_port=int(payload.get("smtp_port") or args.smtp_port),
+        smtp_use_starttls=payload.get("smtp_use_starttls", "on") == "on",
+        smtp_use_tls=payload.get("smtp_use_tls") == "on",
+        imap_host=payload.get("imap_host") or args.imap_host,
+        imap_port=int(payload.get("imap_port") or args.imap_port),
+        imap_use_tls=payload.get("imap_use_tls", "on") == "on",
+        db_path=payload.get("db_path") or args.db_path,
+        download_dir=payload.get("download_dir") or args.download_dir,
+        contacts_path=payload.get("contacts_path") or args.contacts_path,
+    )
+    fields = {
+        "display_name": payload.get("display_name") or values.from_name,
+        "english_name": payload.get("english_name", ""),
+        "hanja_name": payload.get("hanja_name", ""),
+        "department": payload.get("department", ""),
+        "division_english": payload.get("division_english", ""),
+        "team": payload.get("team", ""),
+        "position": payload.get("position", ""),
+        "job_title_english": payload.get("job_title_english", ""),
+        "office_phone": payload.get("office_phone", ""),
+        "mobile": payload.get("mobile", ""),
+        "email": values.email,
+    }
+    setup_args = SimpleNamespace(
+        display_name=fields["display_name"],
+        english_name=fields["english_name"],
+        hanja_name=fields["hanja_name"],
+        department=fields["department"],
+        division_english=fields["division_english"],
+        team=fields["team"],
+        position=fields["position"],
+        job_title_english=fields["job_title_english"],
+        office_phone=fields["office_phone"],
+        mobile=fields["mobile"],
+        logo_image_path=payload.get("logo_image_path", ""),
+        greeting_text=payload.get("greeting_text") or DEFAULT_GREETING_TEXT,
+        closing_text=payload.get("closing_text") or DEFAULT_CLOSING_TEXT,
+        preview_dir=payload.get("preview_dir") or args.preview_dir,
+        signature_gui=False,
+        edit_templates=False,
+        non_interactive=True,
+    )
+    _write_env_file(values, force=args.force or payload.get("force") == "on")
+    config = _build_config(values)
+    if payload.get("skip_connection_check") != "on":
+        _check_connections(config)
+    if payload.get("skip_signature_setup") != "on":
+        _setup_default_signature(config, values=values, args=setup_args)
+    return {
+        "env_file": str(values.env_file),
+        "command_path": str((Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()),
+        "codex_config": _codex_config_snippet(values.env_file),
+        "claude_command": _claude_command_snippet(values.env_file),
+    }
+
+
+def _required_payload(payload: dict[str, str], key: str, label: str) -> str:
+    value = payload.get(key, "").strip()
+    if not value:
+        raise ValueError(f"{label} 필요")
+    return value
+
+
+def _web_form_html(args: argparse.Namespace) -> str:
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ubisam-mail-mcp setup</title>
+<style>
+body{{font-family:"Malgun Gothic",system-ui,sans-serif;margin:0;background:#f5f7f9;color:#1b1f24;}}
+main{{max-width:1180px;margin:0 auto;padding:24px;}}
+h1{{font-size:24px;margin:0 0 16px;}}
+.layout{{display:grid;grid-template-columns:minmax(420px,1fr) minmax(420px,1fr);gap:18px;align-items:start;}}
+.panel{{background:white;border:1px solid #d7dde3;border-radius:8px;padding:16px;}}
+.grid{{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;}}
+label{{font-size:14px;color:#30363d;}}
+input,textarea{{width:100%;box-sizing:border-box;border:1px solid #c7d0d9;border-radius:6px;padding:8px;font:14px "Malgun Gothic",system-ui,sans-serif;}}
+textarea{{min-height:92px;resize:vertical;line-height:1.5;}}
+.section{{margin-top:18px;padding-top:14px;border-top:1px solid #e5e9ee;}}
+.checks{{display:grid;gap:8px;margin-top:10px;}}
+.checks label{{display:flex;gap:8px;align-items:center;}}
+.checks input{{width:auto;}}
+.preview{{white-space:pre-wrap;min-height:520px;background:#fff;border:1px solid #c7d0d9;border-radius:8px;padding:16px;line-height:1.55;font-size:15px;}}
+.actions{{display:flex;justify-content:flex-end;margin-top:16px;gap:8px;}}
+button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;}}
+.hint{{font-size:13px;color:#59636e;margin:8px 0 0;}}
+code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
+@media(max-width:900px){{.layout{{grid-template-columns:1fr;}}.grid{{grid-template-columns:1fr;}}}}
+</style>
+</head>
+<body>
+<main>
+<h1>ubisam-mail-mcp 처음 설정</h1>
+<form method="post" action="/setup">
+<div class="layout">
+<section class="panel">
+<div class="grid">
+<label>메일 주소</label><input name="email" type="email" required>
+<label>메일 비밀번호</label><input name="password" type="password" required>
+<label>그룹웨어 내 본인 이름</label><input name="from_name" required>
+<label>.env 저장 경로</label><input name="env_file" value="{_esc(args.env_file)}">
+<label>DB 경로</label><input name="db_path" value="{_esc(args.db_path)}">
+<label>다운로드 폴더</label><input name="download_dir" value="{_esc(args.download_dir)}">
+</div>
+<div class="section grid">
+<label>SMTP host</label><input name="smtp_host" value="{_esc(args.smtp_host)}">
+<label>SMTP port</label><input name="smtp_port" value="{_esc(str(args.smtp_port))}">
+<label>IMAP host</label><input name="imap_host" value="{_esc(args.imap_host)}">
+<label>IMAP port</label><input name="imap_port" value="{_esc(str(args.imap_port))}">
+</div>
+<div class="checks">
+<label><input name="smtp_use_starttls" type="checkbox" checked> SMTP STARTTLS 사용</label>
+<label><input name="smtp_use_tls" type="checkbox"> SMTP implicit TLS 사용</label>
+<label><input name="imap_use_tls" type="checkbox" checked> IMAP TLS 사용</label>
+<label><input name="force" type="checkbox"> 기존 .env 덮어쓰기</label>
+<label><input name="skip_connection_check" type="checkbox"> IMAP/SMTP 검증 생략</label>
+<label><input name="skip_signature_setup" type="checkbox"> 기본 서식 설정 생략</label>
+</div>
+<div class="section grid">
+<label>서명 이름</label><input data-preview name="display_name">
+<label>영문 이름</label><input data-preview name="english_name">
+<label>한자 이름</label><input data-preview name="hanja_name">
+<label>부서</label><input data-preview name="department">
+<label>영문 부서</label><input data-preview name="division_english">
+<label>팀</label><input data-preview name="team">
+<label>직급</label><input data-preview name="position">
+<label>영문 직함</label><input data-preview name="job_title_english">
+<label>대표전화</label><input data-preview name="office_phone">
+<label>휴대폰</label><input data-preview name="mobile">
+<label>로고 이미지 경로</label><input data-preview name="logo_image_path">
+</div>
+<div class="section">
+<label>기본 인삿말</label>
+<textarea data-preview name="greeting_text">{_esc(DEFAULT_GREETING_TEXT)}</textarea>
+<label>기본 맺음말</label>
+<textarea data-preview name="closing_text">{_esc(DEFAULT_CLOSING_TEXT)}</textarea>
+<input type="hidden" name="preview_dir" value="{_esc(args.preview_dir)}">
+</div>
+<div class="actions"><button type="submit">저장하고 검증</button></div>
+<p class="hint">이 페이지는 로컬 PC의 <code>127.0.0.1</code> 서버입니다. 비밀번호는 로컬 setup 프로세스로만 전송됩니다.</p>
+</section>
+<section class="panel">
+<h2>실시간 미리보기</h2>
+<div id="preview" class="preview"></div>
+</section>
+</div>
+</form>
+</main>
+<script>
+const form = document.querySelector("form");
+const preview = document.querySelector("#preview");
+function value(name) {{ return (form.elements[name]?.value || "").trim(); }}
+function parts(items, sep=" / ") {{ return items.filter(Boolean).join(sep); }}
+function renderTemplate(text) {{
+  return text.replace(/{{{{\\s*([a-zA-Z0-9_]+)\\s*}}}}/g, (_m, key) => value(key));
+}}
+function refresh() {{
+  if (!value("display_name")) form.elements.display_name.value = value("from_name");
+  const nameHead = parts([parts([value("display_name"), value("position")], " "), value("english_name"), value("hanja_name")]);
+  const dept = parts([value("department"), value("division_english"), value("job_title_english")]);
+  const contact = parts([
+    value("office_phone") ? "t " + value("office_phone") : "",
+    value("mobile") ? "m " + value("mobile") : "",
+    value("email") ? "e " + value("email") : ""
+  ], "  ");
+  const lines = [
+    renderTemplate(value("greeting_text")),
+    "본문 테스트입니다.",
+    renderTemplate(value("closing_text")),
+    [nameHead, dept, contact].filter(Boolean).join("\\n"),
+    value("logo_image_path") ? "[로고] " + value("logo_image_path").split(/[\\\\/]/).pop() : ""
+  ].filter(Boolean);
+  preview.textContent = lines.join("\\n\\n");
+}}
+form.addEventListener("input", refresh);
+refresh();
+</script>
+</body>
+</html>"""
+
+
+def _web_success_html(result: dict[str, str]) -> str:
+    env_file = _esc(result["env_file"])
+    command_path = _esc(result["command_path"])
+    return f"""<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>setup complete</title>
+<style>body{{font-family:"Malgun Gothic",system-ui,sans-serif;margin:24px;line-height:1.55;max-width:920px;}}pre{{background:#f3f5f7;padding:12px;border-radius:8px;overflow:auto;}}</style></head>
+<body>
+<h1>설정 완료</h1>
+<p><code>.env</code> 저장 위치: <code>{env_file}</code></p>
+<p>아래 중 사용하는 client 설정에 넣으세요.</p>
+<h2>Claude Code</h2>
+<pre>{_esc(result["claude_command"])}</pre>
+<h2>Codex</h2>
+<pre>{_esc(result["codex_config"])}</pre>
+<p>설정 후 Claude/Codex를 재시작하고 <code>내 메일 설정 상태 확인해줘.</code>라고 입력하세요.</p>
+<p>command 절대경로: <code>{command_path}</code></p>
+</body></html>"""
+
+
+def _web_error_html(exc: Exception) -> str:
+    return f"""<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>setup failed</title>
+<style>body{{font-family:"Malgun Gothic",system-ui,sans-serif;margin:24px;line-height:1.55;}}</style></head>
+<body><h1>설정 실패</h1><p>{_esc(str(exc))}</p><p>터미널에서 다시 <code>ubisam-mail-mcp-setup --web-setup</code>를 실행하세요.</p></body></html>"""
+
+
+def _claude_command_snippet(env_file: Path) -> str:
+    command_path = (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
+    return (
+        "claude mcp add ubisam-mail \\\n"
+        f"  --env UBISAM_ENV_FILE={env_file} \\\n"
+        f"  -- {command_path}"
+    )
+
+
+def _codex_config_snippet(env_file: Path) -> str:
+    command_path = (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
+    return (
+        "[mcp_servers.ubisam_mail]\n"
+        f'command = "{command_path}"\n'
+        f'env = {{ UBISAM_ENV_FILE = "{env_file}" }}'
+    )
+
+
+def _esc(value: str) -> str:
+    return html.escape(str(value), quote=True)
+
+
 def _setup_default_signature(
     config: AppConfig,
     *,
@@ -332,20 +620,32 @@ def _setup_default_signature(
         "mobile": args.mobile,
         "email": values.email,
     }
-    if not args.non_interactive:
+    greeting_text = args.greeting_text
+    closing_text = args.closing_text
+    logo_image_path = args.logo_image_path
+    if args.signature_gui and not args.non_interactive:
+        fields, greeting_text, closing_text, logo_image_path = _run_signature_gui(
+            fields=fields,
+            greeting_text=greeting_text,
+            closing_text=closing_text,
+            logo_image_path=logo_image_path,
+        )
+    elif not args.non_interactive:
         fields = _prompt_signature_fields(fields)
+        if args.edit_templates:
+            greeting_text = _edit_multiline_text("기본 인삿말", greeting_text)
+            closing_text = _edit_multiline_text("기본 맺음말", closing_text)
+
+    display_name = fields["display_name"].strip() or display_name
+    template_fields = dict(fields)
+    template_fields["logo_image_path"] = logo_image_path
+    signature_text, signature_html = _build_signature_templates(template_fields)
     service.create_signature_profile(
         name=f"{display_name} 기본 프로필",
         fields=fields,
-        logo_image_path=args.logo_image_path,
+        logo_image_path=logo_image_path,
         is_default=True,
     )
-    greeting_text = args.greeting_text
-    closing_text = args.closing_text
-    if args.edit_templates and not args.non_interactive:
-        greeting_text = _edit_multiline_text("기본 인삿말", greeting_text)
-        closing_text = _edit_multiline_text("기본 맺음말", closing_text)
-
     service.create_greeting_template(
         name="기본 인삿말",
         text_template=greeting_text,
@@ -358,8 +658,8 @@ def _setup_default_signature(
     )
     service.create_signature(
         name="기본 footer html",
-        text_template=DEFAULT_SIGNATURE_TEXT,
-        html_template=DEFAULT_SIGNATURE_HTML,
+        text_template=signature_text,
+        html_template=signature_html,
         mode="closing_only",
         is_default=True,
     )
@@ -378,6 +678,256 @@ def _setup_default_signature(
     )
     preview["export"] = closing_preview.get("export")
     return preview
+
+
+def _build_signature_templates(fields: dict[str, str]) -> tuple[str, str]:
+    name_head = _join_template_parts(
+        [
+            _join_template_parts(["{{display_name}}", "{{position}}"], separator=" "),
+            _optional_placeholder("english_name", fields),
+            _optional_placeholder("hanja_name", fields),
+        ]
+    )
+    department_line = _join_template_parts(
+        [
+            _optional_placeholder("department", fields),
+            _optional_placeholder("division_english", fields),
+            _optional_placeholder("job_title_english", fields),
+        ]
+    )
+    contact_line = _join_template_parts(
+        [
+            _prefixed_placeholder("t", "office_phone", fields),
+            _prefixed_placeholder("m", "mobile", fields),
+            _prefixed_placeholder("e", "email", fields),
+        ],
+        separator="  ",
+    )
+    text_lines = [line for line in (name_head, department_line, contact_line) if line]
+    text_template = "\n".join(text_lines) or "{{display_name}}\ne {{email}}"
+
+    logo_html = (
+        '<span style="display:inline-flex;align-items:flex-end;line-height:1;">'
+        "{{company_logo_img}}</span>"
+        if fields.get("logo_image_path", "").strip()
+        else ""
+    )
+    html_parts = [
+        '<hr style="border:none;border-top:1px solid #cfcfcf;margin:0 0 14px 0;">',
+        '<div style="font-family:\'Malgun Gothic\',sans-serif;color:#7c7c7c;">',
+    ]
+    html_parts.append(
+        '  <div style="font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;'
+        'display:flex;align-items:flex-end;gap:14px;">'
+        f"{logo_html}"
+        '    <span style="display:inline-block;line-height:1;transform:translateY(-4px);">'
+        f"{name_head}</span>"
+        "  </div>"
+    )
+    if department_line:
+        html_parts.append(
+            '  <div style="margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;">'
+            f"{department_line}</div>"
+        )
+    if contact_line:
+        html_parts.append(
+            '  <div style="margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;">'
+            f"{_html_contact_line(fields)}"
+            "  </div>"
+        )
+    html_parts.append("</div>")
+    return text_template, "".join(html_parts)
+
+
+def _join_template_parts(parts: list[str], *, separator: str = " / ") -> str:
+    return separator.join(part for part in parts if part)
+
+
+def _optional_placeholder(name: str, fields: dict[str, str]) -> str:
+    if not fields.get(name, "").strip():
+        return ""
+    return "{{" + name + "}}"
+
+
+def _prefixed_placeholder(prefix: str, name: str, fields: dict[str, str]) -> str:
+    if not fields.get(name, "").strip():
+        return ""
+    return f"{prefix} {{{{{name}}}}}"
+
+
+def _html_contact_line(fields: dict[str, str]) -> str:
+    parts: list[str] = []
+    for prefix, name in (("t", "office_phone"), ("m", "mobile"), ("e", "email")):
+        if fields.get(name, "").strip():
+            parts.append(f'<strong style="color:#222;">{prefix}</strong> {{{{{name}}}}}')
+    return " &nbsp;&nbsp; ".join(parts)
+
+
+def _run_signature_gui(
+    *,
+    fields: dict[str, str],
+    greeting_text: str,
+    closing_text: str,
+    logo_image_path: str,
+) -> tuple[dict[str, str], str, str, str]:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog, messagebox, ttk
+        from tkinter.scrolledtext import ScrolledText
+    except Exception as exc:
+        raise ValueError("GUI setup requires tkinter. Use --edit-templates or terminal input.") from exc
+
+    result: dict[str, object] = {"saved": False}
+    root = tk.Tk()
+    root.title("ubisam-mail-mcp 기본 서식 설정")
+    root.geometry("1120x760")
+    root.minsize(960, 680)
+
+    field_labels = [
+        ("display_name", "서명 이름"),
+        ("english_name", "영문 이름"),
+        ("hanja_name", "한자 이름"),
+        ("department", "부서"),
+        ("division_english", "영문 부서"),
+        ("team", "팀"),
+        ("position", "직급"),
+        ("job_title_english", "영문 직함"),
+        ("office_phone", "대표전화"),
+        ("mobile", "휴대폰"),
+        ("email", "이메일"),
+    ]
+    vars_by_key = {key: tk.StringVar(value=fields.get(key, "")) for key, _label in field_labels}
+    logo_var = tk.StringVar(value=logo_image_path)
+
+    outer = ttk.Frame(root, padding=12)
+    outer.pack(fill="both", expand=True)
+    outer.columnconfigure(0, weight=1)
+    outer.columnconfigure(1, weight=1)
+    outer.rowconfigure(0, weight=1)
+
+    left = ttk.Frame(outer)
+    left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+    left.columnconfigure(1, weight=1)
+    right = ttk.Frame(outer)
+    right.grid(row=0, column=1, sticky="nsew")
+    right.rowconfigure(1, weight=1)
+    right.columnconfigure(0, weight=1)
+
+    ttk.Label(left, text="프로필", font=("", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w")
+    for row_index, (key, label) in enumerate(field_labels, start=1):
+        ttk.Label(left, text=label).grid(row=row_index, column=0, sticky="w", pady=3)
+        entry = ttk.Entry(left, textvariable=vars_by_key[key])
+        entry.grid(row=row_index, column=1, columnspan=2, sticky="ew", pady=3)
+
+    logo_row = len(field_labels) + 1
+    ttk.Label(left, text="로고 이미지").grid(row=logo_row, column=0, sticky="w", pady=3)
+    ttk.Entry(left, textvariable=logo_var).grid(row=logo_row, column=1, sticky="ew", pady=3)
+
+    def choose_logo() -> None:
+        selected = filedialog.askopenfilename(
+            title="로고 이미지 선택",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.webp"),
+                ("All files", "*.*"),
+            ],
+        )
+        if selected:
+            logo_var.set(selected)
+
+    ttk.Button(left, text="찾기", command=choose_logo).grid(row=logo_row, column=2, sticky="ew", padx=(6, 0))
+
+    text_row = logo_row + 1
+    ttk.Label(left, text="기본 인삿말").grid(row=text_row, column=0, columnspan=3, sticky="w", pady=(12, 3))
+    greeting_box = ScrolledText(left, height=5, wrap="word")
+    greeting_box.grid(row=text_row + 1, column=0, columnspan=3, sticky="nsew")
+    greeting_box.insert("1.0", greeting_text)
+
+    ttk.Label(left, text="기본 맺음말").grid(row=text_row + 2, column=0, columnspan=3, sticky="w", pady=(12, 3))
+    closing_box = ScrolledText(left, height=5, wrap="word")
+    closing_box.grid(row=text_row + 3, column=0, columnspan=3, sticky="nsew")
+    closing_box.insert("1.0", closing_text)
+    left.rowconfigure(text_row + 1, weight=1)
+    left.rowconfigure(text_row + 3, weight=1)
+
+    ttk.Label(right, text="실시간 미리보기", font=("", 12, "bold")).grid(row=0, column=0, sticky="w")
+    preview = ScrolledText(right, wrap="word", state="disabled")
+    preview.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
+
+    buttons = ttk.Frame(right)
+    buttons.grid(row=2, column=0, sticky="e", pady=(12, 0))
+
+    def current_fields() -> dict[str, str]:
+        data = {key: variable.get().strip() for key, variable in vars_by_key.items()}
+        data["logo_image_path"] = logo_var.get().strip()
+        return data
+
+    def current_greeting() -> str:
+        return greeting_box.get("1.0", "end").strip()
+
+    def current_closing() -> str:
+        return closing_box.get("1.0", "end").strip()
+
+    def refresh_preview(*_args) -> None:
+        data = current_fields()
+        text_template, _html_template = _build_signature_templates(data)
+        rendered = "\n\n".join(
+            part
+            for part in [
+                _render_setup_template(current_greeting(), data),
+                "본문 테스트입니다.",
+                _render_setup_template(current_closing(), data),
+                _render_setup_template(text_template, data),
+            ]
+            if part
+        )
+        if data.get("logo_image_path"):
+            rendered += f"\n\n[로고] {Path(data['logo_image_path']).name}"
+        preview.configure(state="normal")
+        preview.delete("1.0", "end")
+        preview.insert("1.0", rendered)
+        preview.configure(state="disabled")
+
+    for variable in [*vars_by_key.values(), logo_var]:
+        variable.trace_add("write", refresh_preview)
+    greeting_box.bind("<KeyRelease>", refresh_preview)
+    closing_box.bind("<KeyRelease>", refresh_preview)
+
+    def save() -> None:
+        data = current_fields()
+        if not data.get("display_name"):
+            messagebox.showerror("입력 필요", "서명 이름은 필수입니다.")
+            return
+        if not data.get("email"):
+            messagebox.showerror("입력 필요", "이메일은 필수입니다.")
+            return
+        result["saved"] = True
+        result["fields"] = data
+        result["greeting_text"] = current_greeting() or DEFAULT_GREETING_TEXT
+        result["closing_text"] = current_closing() or DEFAULT_CLOSING_TEXT
+        result["logo_image_path"] = data.pop("logo_image_path", "")
+        root.destroy()
+
+    def cancel() -> None:
+        root.destroy()
+
+    ttk.Button(buttons, text="취소", command=cancel).pack(side="right", padx=(8, 0))
+    ttk.Button(buttons, text="저장", command=save).pack(side="right")
+    root.protocol("WM_DELETE_WINDOW", cancel)
+    refresh_preview()
+    root.mainloop()
+
+    if not result["saved"]:
+        raise KeyboardInterrupt
+    return (
+        result["fields"],  # type: ignore[return-value]
+        str(result["greeting_text"]),
+        str(result["closing_text"]),
+        str(result["logo_image_path"]),
+    )
+
+
+def _render_setup_template(template: str, fields: dict[str, str]) -> str:
+    return _PLACEHOLDER_RE.sub(lambda match: fields.get(match.group(1), ""), template).strip()
 
 
 def _prompt_signature_fields(defaults: dict[str, str]) -> dict[str, str]:

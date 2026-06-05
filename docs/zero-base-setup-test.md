@@ -21,7 +21,21 @@ python3 -m pip install -e .
 
 ## 2. setup wizard 실행
 
-기본 서식까지 설정:
+로컬 웹페이지에서 계정/서식 설정:
+
+```bash
+ubisam-mail-mcp-setup --web-setup
+```
+
+브라우저가 자동으로 열리지 않으면 터미널에 나온 `http://127.0.0.1:8765/` 주소를 직접 연다.
+
+GUI 팝업에서 기본 서식까지 설정:
+
+```bash
+ubisam-mail-mcp-setup --signature-gui
+```
+
+터미널 에디터에서 여러 줄 인삿말/맺음말을 편집:
 
 ```bash
 ubisam-mail-mcp-setup --edit-templates
@@ -36,7 +50,7 @@ ubisam-mail-mcp-setup --skip-signature-setup
 입력값:
 - 메일 주소
 - 메일 비밀번호
-- 보내는 사람 표시 이름
+- 그룹웨어 내 본인 이름
 - 서명 프로필 값
 - 인삿말/맺음말 여러 줄 텍스트
 
@@ -46,7 +60,8 @@ ubisam-mail-mcp-setup --skip-signature-setup
 - SMTP 로그인 `OK`
 - 기본 서식 저장 완료
 - `downloads/setup-preview/signature-preview.html` 생성
-- 마지막 안내에 `UBISAM_ENV_FILE` 절대경로 출력
+- 완료 페이지에 Claude/Codex 설정 예시 출력
+- 설정 예시에 `UBISAM_ENV_FILE` 절대경로 포함
 
 ## 3. Claude Code 연결
 
@@ -134,4 +149,3 @@ Codex 재시작 후 요청:
 - Claude/Codex에서 tool 없음: 앱 재시작, command 절대경로 확인
 - `smtp_ready`/`imap_ready` false: `UBISAM_ENV_FILE` 절대경로 확인
 - 서명 이미지 실패: `logo_image_path`를 절대경로로 입력
-

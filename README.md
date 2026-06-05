@@ -123,16 +123,24 @@ ubisam-mail-mcp          # stdio MCP 서버 시작
 처음 사용자라면 `.env`를 직접 편집하지 말고 setup wizard를 먼저 실행한다:
 
 ```bash
-ubisam-mail-mcp-setup
+ubisam-mail-mcp-setup --web-setup
 ```
 
 wizard가 처리하는 것:
-- 메일 주소/비밀번호/보내는 사람 이름 입력
+- 메일 주소/비밀번호/그룹웨어 내 본인 이름 입력
 - `.env` 생성(`0600` 권한)
 - IMAP/SMTP 로그인 검증
 - 기본 인삿말/맺음말/footer 서명/프로필을 로컬 SQLite DB에 저장
 - footer HTML 미리보기 파일 생성
-- Claude/Codex 설정에 넣을 `UBISAM_ENV_FILE` 경로 출력
+- Claude/Codex 설정에 붙여 넣을 설정 예시 출력
+
+`UBISAM_ENV_FILE`은 MCP 서버가 어느 `.env` 파일을 읽을지 알려주는 값이다. setup 완료 페이지의 Claude/Codex 예시를 그대로 붙여 넣으면 된다.
+
+GUI 없는 서버나 브라우저를 못 여는 환경에서는 터미널 wizard를 쓴다:
+
+```bash
+ubisam-mail-mcp-setup
+```
 
 서식 설정 없이 계정 연결만 하려면:
 
@@ -153,6 +161,14 @@ ubisam-mail-mcp-setup --edit-templates
 ```
 
 `VISUAL` 또는 `EDITOR`가 설정돼 있으면 해당 에디터를 열고, 없으면 `nano`/`vim`/`vi` 중 사용 가능한 에디터를 연다. 에디터가 전혀 없으면 터미널에서 여러 줄 입력 후 한 줄에 `.`만 입력해 종료한다.
+
+입력값을 보면서 서명을 만들고 싶으면 GUI를 열 수 있다:
+
+```bash
+ubisam-mail-mcp-setup --signature-gui
+```
+
+팝업 창에서 이름/부서/연락처/인삿말/맺음말을 입력하면 오른쪽 미리보기에 바로 반영된다. 빈 영문 이름/한자 이름/전화번호는 저장되는 footer 서명에서도 빠진다.
 
 가상환경 없이 소스에서 직접 실행:
 

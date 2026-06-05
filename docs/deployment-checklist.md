@@ -115,7 +115,15 @@
 - [ ] setup wizard로 `.env` 생성
 
   ```bash
-  ubisam-mail-mcp-setup
+  ubisam-mail-mcp-setup --web-setup
+  ```
+
+  브라우저가 자동으로 열리지 않으면 터미널에 나온 로컬 URL을 직접 연다.
+
+  GUI 팝업에서 서식을 실시간 확인하며 입력하려면:
+
+  ```bash
+  ubisam-mail-mcp-setup --signature-gui
   ```
 
   여러 줄 인삿말/맺음말을 에디터에서 편집하려면:
