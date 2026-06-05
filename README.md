@@ -120,6 +120,40 @@ pip install -e .
 ubisam-mail-mcp          # stdio MCP 서버 시작
 ```
 
+처음 사용자라면 `.env`를 직접 편집하지 말고 setup wizard를 먼저 실행한다:
+
+```bash
+ubisam-mail-mcp-setup
+```
+
+wizard가 처리하는 것:
+- 메일 주소/비밀번호/보내는 사람 이름 입력
+- `.env` 생성(`0600` 권한)
+- IMAP/SMTP 로그인 검증
+- 기본 인삿말/맺음말/footer 서명/프로필을 로컬 SQLite DB에 저장
+- footer HTML 미리보기 파일 생성
+- Claude/Codex 설정에 넣을 `UBISAM_ENV_FILE` 경로 출력
+
+서식 설정 없이 계정 연결만 하려면:
+
+```bash
+ubisam-mail-mcp-setup --skip-signature-setup
+```
+
+검증 없이 파일과 기본 서식만 만들려면(오프라인 테스트용):
+
+```bash
+ubisam-mail-mcp-setup --skip-connection-check
+```
+
+인삿말/맺음말을 여러 줄로 직접 편집하려면:
+
+```bash
+ubisam-mail-mcp-setup --edit-templates
+```
+
+`VISUAL` 또는 `EDITOR`가 설정돼 있으면 해당 에디터를 열고, 없으면 `nano`/`vim`/`vi` 중 사용 가능한 에디터를 연다. 에디터가 전혀 없으면 터미널에서 여러 줄 입력 후 한 줄에 `.`만 입력해 종료한다.
+
 가상환경 없이 소스에서 직접 실행:
 
 ```bash
@@ -180,9 +214,12 @@ env = { UBISAM_ENV_FILE = "/absolute/path/to/ubisam-mail-mcp/.env" }
 
 ## 권장 agent 흐름 / 튜토리얼
 
+배포 전 확인:
+- [docs/deployment-checklist.md](docs/deployment-checklist.md)
+
 개인 초기 설정 문서:
-- [docs/personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md)
-- [docs/personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)
+- [docs/personal-setup-tutorial.md](docs/personal-setup-tutorial.md)
+- [docs/personal-setup-tool-call-examples.md](docs/personal-setup-tool-call-examples.md)
 
 1. `create_greeting_template`로 인삿말 템플릿 저장
 2. `create_signature_profile`로 이름/부서/연락처/로고 프로필 저장

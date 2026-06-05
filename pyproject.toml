@@ -15,6 +15,7 @@ dependencies = ["mcp>=1.2"]
 
 [project.scripts]
 ubisam-mail-mcp = "ubisam_mail_mcp.server:main"
+ubisam-mail-mcp-setup = "ubisam_mail_mcp.setup_wizard:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
