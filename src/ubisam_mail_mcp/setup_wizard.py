@@ -320,10 +320,18 @@ def _run_web_setup(args: argparse.Namespace) -> int:
 def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.BaseHTTPRequestHandler]:
     class SetupRequestHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path == "/assets/mcp-setting.png":
+                self._send_png(_setup_image_path())
+                return
+            if self.path in {"/", "/index.html"}:
+                self._send_html(_web_preflight_html())
+                return
+            if self.path == "/account":
+                self._send_html(_web_account_form_html(args))
+                return
             if self.path not in {"/", "/index.html"}:
                 self.send_error(404)
                 return
-            self._send_html(_web_form_html(args))
 
         def do_POST(self) -> None:
             if self.path not in {"/verify", "/setup"}:
@@ -374,6 +382,17 @@ def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.Ba
             self.send_header("Content-Length", str(len(encoded)))
             self.end_headers()
             self.wfile.write(encoded)
+
+        def _send_png(self, path: Path) -> None:
+            if not path.is_file():
+                self.send_error(404)
+                return
+            payload = path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
 
     return SetupRequestHandler
 
@@ -463,7 +482,48 @@ def _required_payload(payload: dict[str, str], key: str, label: str) -> str:
     return value
 
 
-def _web_form_html(args: argparse.Namespace) -> str:
+def _web_preflight_html() -> str:
+    return """<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ubisam-mail-mcp setup</title>
+<style>
+body{font-family:"Malgun Gothic",system-ui,sans-serif;margin:0;background:#f5f7f9;color:#1b1f24;}
+main{max-width:1120px;margin:0 auto;padding:24px;}
+h1{font-size:24px;margin:0 0 12px;}
+.panel{background:white;border:1px solid #d7dde3;border-radius:8px;padding:16px;}
+.guide{width:100%;border:1px solid #c7d0d9;border-radius:8px;display:block;margin-top:12px;}
+.check{display:flex;gap:10px;align-items:center;margin-top:16px;font-size:15px;}
+.check input{width:18px;height:18px;}
+.actions{display:flex;justify-content:flex-end;margin-top:16px;}
+button{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;}
+button:disabled{background:#b8c3cc;border-color:#b8c3cc;cursor:not-allowed;}
+.hint{font-size:13px;color:#59636e;margin:8px 0 0;}
+</style>
+</head>
+<body>
+<main>
+<section class="panel">
+<h1>1단계. 그룹웨어 SMTP/IMAP 활성화</h1>
+<p class="hint">아래 순서대로 그룹웨어에서 SMTP/IMAP 사용을 활성화하고 저장하세요. 이 작업이 끝나야 계정 확인이 성공합니다.</p>
+<img class="guide" src="/assets/mcp-setting.png" alt="그룹웨어 SMTP/IMAP 활성화 순서">
+<label class="check"><input id="done" type="checkbox"> 그룹웨어에서 SMTP/IMAP 사용을 활성화하고 저장했습니다.</label>
+<div class="actions"><button id="next" type="button" disabled>다음</button></div>
+</section>
+</main>
+<script>
+const done = document.querySelector("#done");
+const next = document.querySelector("#next");
+done.addEventListener("change", () => { next.disabled = !done.checked; });
+next.addEventListener("click", () => { window.location.href = "/account"; });
+</script>
+</body>
+</html>"""
+
+
+def _web_account_form_html(args: argparse.Namespace) -> str:
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -490,7 +550,7 @@ code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
 </head>
 <body>
 <main>
-<h1>1단계. 그룹웨어 계정 확인</h1>
+<h1>2단계. 그룹웨어 계정 확인</h1>
 <form method="post" action="/verify">
 <section class="panel">
 <div class="grid">
@@ -499,7 +559,7 @@ code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
 <label>그룹웨어 내 본인 이름</label><input name="from_name" required>
 </div>
 <div class="actions"><button type="submit">계정 확인</button></div>
-<p class="hint">먼저 IMAP/SMTP 로그인을 검증한다. 성공하면 서명 설정 화면으로 넘어간다.</p>
+<p class="hint">IMAP/SMTP 로그인을 검증한다. 성공하면 서명 설정 화면으로 넘어간다.</p>
 <p class="hint">경로, DB, SMTP/IMAP host/port는 기본값을 사용한다. 비밀번호는 이 PC의 로컬 setup 프로세스로만 전송된다.</p>
 </section>
 </form>
@@ -547,7 +607,7 @@ button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6p
 </head>
 <body>
 <main>
-<h1>2단계. 기본 서식 설정</h1>
+<h1>3단계. 기본 서식 설정</h1>
 <p class="hint">계정 확인 완료: {_esc(values.email)}</p>
 <form method="post" action="/setup">
 <input type="hidden" name="setup_token" value="{_esc(token)}">
@@ -667,6 +727,10 @@ def _codex_config_snippet(env_file: Path) -> str:
 
 def _esc(value: str) -> str:
     return html.escape(str(value), quote=True)
+
+
+def _setup_image_path() -> Path:
+    return Path(__file__).resolve().parent / "assets" / "mcp-setting.png"
 
 
 def _setup_default_signature(

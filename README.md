@@ -127,6 +127,7 @@ ubisam-mail-mcp-setup --web-setup
 ```
 
 wizard가 처리하는 것:
+- 그룹웨어 SMTP/IMAP 활성화 안내 이미지 확인
 - 메일 주소/비밀번호/그룹웨어 내 본인 이름 입력 후 IMAP/SMTP 먼저 검증
 - `.env` 생성(`0600` 권한)
 - 검증 성공 후 기본 인삿말/맺음말/footer 서명/프로필을 로컬 SQLite DB에 저장

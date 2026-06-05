@@ -8,7 +8,9 @@ from ubisam_mail_mcp.setup_wizard import (
     _build_signature_templates,
     _parse_args,
     _run_setup_from_web_payload,
-    _web_form_html,
+    _setup_image_path,
+    _web_account_form_html,
+    _web_preflight_html,
     _web_signature_form_html,
     main,
 )
@@ -196,8 +198,21 @@ def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
     assert repository.get_default_signature() is not None
 
 
+def test_web_setup_preflight_page_requires_confirmation():
+    html = _web_preflight_html()
+
+    assert "/assets/mcp-setting.png" in html
+    assert "SMTP/IMAP 사용을 활성화하고 저장했습니다" in html
+    assert 'id="next" type="button" disabled' in html
+    assert "/account" in html
+
+
+def test_setup_image_asset_exists():
+    assert _setup_image_path().is_file()
+
+
 def test_web_setup_account_page_hides_advanced_fields():
-    html = _web_form_html(_parse_args(["--web-setup"]))
+    html = _web_account_form_html(_parse_args(["--web-setup"]))
 
     assert 'action="/verify"' in html
     assert "togglePassword" in html
