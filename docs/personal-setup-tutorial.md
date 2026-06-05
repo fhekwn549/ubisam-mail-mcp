@@ -20,34 +20,21 @@ AI에게 한국어로 말만 하면 메일을 정리·작성·발송하도록 �
 
 ---
 
-## 큰 그림 (6단계)
+## 큰 그림 (5단계)
 
-1. 그룹웨어에서 외부 메일 연동 켜기
-2. 프로그램 설치 (Python + 이 레포)
-3. 내 계정 정보 입력 (`.env` 파일)
-4. AI 앱(MCP 클라이언트)에 연결
-5. 연결 확인
-6. 사용 시작 (서명 세팅 → 초안 → 발송 → 메일 정리)
+1. 프로그램 설치 (Python + 이 레포)
+2. setup wizard 실행 (외부 메일 활성화 안내, 계정 검증, 기본 서명 설정)
+3. AI 앱(MCP 클라이언트)에 연결
+4. 연결 확인
+5. 사용 시작 (메일 조회 → 초안 → 발송 → 메일 정리)
 
 각 단계를 아래에서 하나씩 따라가면 된다. **순서대로** 하는 게 중요하다.
 
 ---
 
-## 1단계. 그룹웨어에서 외부 메일 연동 켜기
+## 1단계. 프로그램 설치
 
-이걸 먼저 안 켜면, 설정을 아무리 잘해도 로그인이 거부된다.
-
-1. 유비샘 그룹웨어 웹에 로그인
-2. **메일 → 환경설정 → SMTP-POP3-IMAP → SMTP/IMAP** 메뉴로 이동
-3. **SMTP / IMAP 사용**을 활성화하고 저장
-
-> IMAP = 메일을 읽어오는 통로, SMTP = 메일을 보내는 통로. 둘 다 켜야 한다.
-
----
-
-## 2단계. 프로그램 설치
-
-### 2-1. Python 3.10 이상 확인
+### 1-1. Python 3.10 이상 확인
 
 터미널(Windows는 PowerShell, Mac은 터미널 앱)을 열고:
 
@@ -60,7 +47,7 @@ python3 --version
 - Python이 아예 없는 PC는 Python 3.12 또는 3.13 설치를 권장한다. 너무 최신 버전이 부담되면 3.12가 보수적 선택이다.
 - Windows에서 여러 버전이 설치돼 있으면 PowerShell에서 `py --list`로 확인한다.
 
-### 2-2. 레포 clone / 설치
+### 1-2. 레포 clone / 설치
 
 Claude Desktop이나 Codex Desktop 같은 **Windows 데스크톱 앱**에 붙일 PC라면 PowerShell에서 설치한다:
 
@@ -120,9 +107,9 @@ python -m pip install -e .
 
 ---
 
-## 3단계. 내 계정 정보 입력 (`.env`)
+## 2단계. setup wizard 실행
 
-서버가 내 메일 계정으로 로그인하려면 계정값이 필요하다. 처음 사용자는 setup wizard를 권장한다.
+setup wizard가 외부 메일 활성화 안내, 계정 입력, IMAP/SMTP 검증, `.env` 생성, 기본 인삿말/맺음말/footer 서명 설정까지 처리한다. 화면 안내대로 진행하면 된다.
 
 Windows PowerShell:
 
@@ -137,33 +124,13 @@ source .venv/bin/activate
 ubisam-mail-mcp-setup --web-setup
 ```
 
-wizard가 어렵거나 수동으로 설정하려면 예시 파일을 복사해서 내 값으로 채운다:
-
-```bash
-cp .env.example .env
-```
-
-그다음 `.env` 파일을 메모장/편집기로 열어 **내 값으로 수정**한다.
-
-반드시 채워야 하는 항목:
-- `UBISAM_SMTP_USERNAME` — 내 메일 주소 (보내기용 로그인 아이디)
-- `UBISAM_SMTP_PASSWORD` — 메일 비밀번호
-- `UBISAM_IMAP_USERNAME` — 보통 메일 주소와 동일
-- `UBISAM_IMAP_PASSWORD` — 메일 비밀번호
-- `UBISAM_DEFAULT_FROM` — 내 메일 주소 (보내는 사람)
-- `UBISAM_DEFAULT_FROM_NAME` — 받는 사람에게 보일 내 이름
-
-채우면 좋은 항목(선택):
-- `UBISAM_ATTACHMENT_DOWNLOAD_DIR` — 받은 첨부를 저장할 폴더
-- `UBISAM_CONTACTS_PATH` — 이름↔메일 자동 변환용 주소록 파일
-
-나머지 호스트/포트 값(`ubisam.hanbiro.net`, SMTP 587 STARTTLS, IMAP 993 SSL 등)은 `.env.example`에 이미 권장값이 들어 있으니 그대로 두면 된다.
+완료 화면에 Claude/Codex에 붙여 넣을 설정 예시가 나온다. 여기서 `command`와 `UBISAM_ENV_FILE` 경로를 다음 단계에 사용한다.
 
 > `.env`에는 비밀번호가 들어간다. 다른 사람과 공유하거나 외부에 올리지 않는다.
 
 ---
 
-## 4단계. AI 앱(MCP 클라이언트)에 연결
+## 3단계. AI 앱(MCP 클라이언트)에 연결
 
 쓰는 AI 앱에 맞는 항목 하나를 따라 한다. 공통 규칙: MCP 서버를 실행하는 `command`와 설정 파일 경로 `UBISAM_ENV_FILE`을 AI 앱 설정에 넣는다.
 
@@ -223,11 +190,11 @@ command = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.venv\\Scripts\\ubisam-mail-mc
 env = { UBISAM_ENV_FILE = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.env" }
 ```
 
-자세한 클라이언트별 설명은 [README.md](../README.md)의 "MCP 클라이언트 설정" 참고.
+완료 화면의 설정 예시를 우선 사용하고, 전체 프로젝트 정보는 [README.md](../README.md)를 참고한다.
 
 ---
 
-## 5단계. 연결 확인
+## 4단계. 연결 확인
 
 AI 앱을 새로 켠 뒤, 채팅창에 이렇게 말한다:
 
@@ -238,7 +205,7 @@ AI가 내부적으로 `config_status`를 호출하고, 다음을 보여준다:
 - `imap_ready: true` (읽기 준비됨)
 - `default_from_address`가 내 주소인지
 
-둘 중 하나라도 `false`면 1~3단계(그룹웨어 활성화 / `.env` 값)를 다시 확인한다.
+둘 중 하나라도 `false`면 setup wizard를 다시 실행해 외부 메일 활성화, 계정/비밀번호, `UBISAM_ENV_FILE` 절대경로를 확인한다.
 
 <details>
 <summary>참고: AI가 내부적으로 부르는 형태</summary>
@@ -250,65 +217,11 @@ config_status()
 
 ---
 
-## 6단계. 사용 시작
+## 5단계. 사용 시작
 
-여기서부터가 실제 사용이다. **한 번만 서명을 세팅**해 두면, 이후 메일은 서명이 자동으로 붙는다.
+setup wizard에서 계정과 기본 서명 설정을 마쳤으면, 이후에는 AI에게 평소 말하듯 요청하면 된다.
 
-### 6-1. 메일 서명/인삿말 세팅 (한 번만)
-
-이 MCP는 메일 끝부분을 4개 조각으로 관리한다:
-
-| 조각 | 역할 | 만드는 기능 |
-|------|------|-------------|
-| 프로필(profile) | 이름·부서·연락처·로고 같은 **값 모음** | `create_signature_profile` |
-| 인삿말(greeting) | 본문 **위** 인사 문구 | `create_greeting_template` |
-| 맺음말(closing) | 본문 **아래** 마무리 문구 | `create_closing_template` |
-| footer 서명(signature) | 맨 아래 연락처/로고 블록 | `create_signature(mode="closing_only")` |
-
-> 인삿말·맺음말은 글자만 있으면 되므로 **텍스트만** 넣으면 된다(HTML은 자동 생성). 반면 footer 서명은 색상·로고 같은 스타일이 핵심이라 **HTML과 텍스트를 함께** 둔다. 그래서 예시 파일도 인삿말/맺음말은 텍스트만, footer는 둘 다 들어 있다.
-
-먼저 복붙용 예시 파일 4개를 열어 **본인 정보로 수정**한다(특히 프로필):
-- [signature-profile.example.json](examples/personal-setup/signature-profile.example.json) ← 이름/부서/연락처/로고
-- [greeting-template.example.json](examples/personal-setup/greeting-template.example.json)
-- [closing-template.example.json](examples/personal-setup/closing-template.example.json)
-- [signature-template.example.json](examples/personal-setup/signature-template.example.json)
-- 로고 이미지: [logo-color.png](examples/personal-setup/assets/logo-color.png)
-
-> 예시 값은 익명화 샘플 `홍길동 / John Doe / 洪吉童` 기준이다.
-
-**프로필에 꼭 채울 항목** (기본 footer가 이 값들을 사용한다):
-`display_name`, `english_name`, `hanja_name`, `department`, `division_english`, `team`, `position`, `job_title_english`, `office_phone`, `mobile`, `email`, `logo_image_path`
-
-> `hanja_name`, `division_english`, `job_title_english`를 비워 두면 footer에 ` / ` 같은 빈칸이 남는다. 안 쓰면 해당 칸을 템플릿에서 지워야 한다.
-
-이제 AI에게 순서대로 부탁한다. **수정한 JSON 파일을 업로드하는 게 아니라**, 그 안의 값을 AI에게 알려주면 AI가 대신 등록한다.
-
-> **"이 정보로 내 기본 서명 프로필 만들어줘. 이름 홍길동, 영문 John Doe, 한자 洪吉童, 부서 로봇자동화사업부, 팀 로봇팀, 직급 사원, 영문부서 Robot Automation, 영문직함 Software Engineer, 대표전화 02-1234-5678, 휴대폰 010-1234-5678, 이메일 hong.gildong@ubisam.com, 로고는 /절대경로/logo-color.png. 이걸 기본값으로 해줘."**
-
-이어서:
-> **"기본 인삿말 템플릿도 만들어줘. '안녕하십니까. 로봇자동화사업부 로봇팀 홍길동 사원입니다.' 형식으로."**
-> **"기본 맺음말도 만들어줘. '확인 부탁드립니다. 감사합니다.'로."**
-> **"기본 footer 서명도 만들어줘. 이름/영문명/한자명, 부서/영문부서/영문직함, 전화/휴대폰/이메일이 한 줄씩 나오게."**
-
-구체적인 tool 호출 형태(복붙 가능)는 [personal-setup-tool-call-examples.md](personal-setup-tool-call-examples.md)에 정리돼 있다.
-
-### 6-2. 미리보기로 확인
-
-발송 전에 서명이 제대로 붙는지 본다:
-
-> **"기본 서명 적용해서 미리보기 보여줘."**
-
-AI가 `preview_signature`를 호출해 인삿말+본문+맺음말+footer 조합을 보여준다.
-
-footer만 브라우저로 확인하고 싶으면:
-
-> **"footer 서명만 HTML로 뽑아줘. /절대경로/downloads/sig-preview 폴더에 저장해줘."**
-
-> 저장 위치(`export_dir`)는 **절대경로**로 말하는 게 안전하다. 상대경로로 하면 서버가 실행된 위치 기준으로 풀려서 엉뚱한 곳에 생길 수 있다.
-
-확인 포인트: 인삿말이 위, 맺음말이 아래, footer에 이름/부서/연락처가 제대로 채워지는지, HTML 줄바꿈/폰트/색상 깨짐 없는지.
-
-### 6-3. 첫 초안 만들고 발송
+### 5-1. 첫 초안 만들고 발송
 
 > **"someone@example.com 한테 'MCP 테스트 메일' 제목으로 초안 하나 만들어줘. 본문은 '테스트입니다.' 기본 서명 다 적용해서."**
 
@@ -321,13 +234,13 @@ AI가 `create_draft`로 초안을 만들고, 렌더링된 결과(`rendered_text_
 
 > 서버가 켜져 있어야 예약 시간에 자동 발송된다. 꺼져 있었다면 다시 "밀린 예약 메일 보내줘"라고 하면 된다(`dispatch_due_messages`).
 
-### 6-4. 메일 조회·검색
+### 5-2. 메일 조회·검색
 
 > **"안 읽은 메일 있어?"** → `get_unread_status`
 > **"받은편지함 최근 메일 보여줘."** → `list_messages`
 > **"제목에 '계약' 들어간 메일 찾아줘."** → `search_messages`
 
-### 6-5. 메일 정리 (예: 주간보고 모으기)
+### 5-3. 메일 정리 (예: 주간보고 모으기)
 
 보낸메일함에 흩어진 같은 주제 메일을 한 메일함에 모을 수 있다. **복사 방식이라 보낸메일함 원본은 그대로 남는다.**
 
@@ -346,37 +259,24 @@ AI가 순서대로 처리한다:
 ## 자주 생기는 문제
 
 **연결이 안 됨 / `imap_ready`나 `smtp_ready`가 false**
-- 1단계(그룹웨어 SMTP/IMAP 활성화)를 안 했다
-- `.env`의 아이디/비밀번호 오타
-- `UBISAM_ENV_FILE` 절대경로가 틀림
+- setup wizard에서 안내한 그룹웨어 SMTP/IMAP 활성화를 완료했는지 확인한다
+- wizard를 다시 실행해 계정/비밀번호를 재입력한다
+- AI 앱 설정의 `UBISAM_ENV_FILE` 절대경로가 setup 완료 화면의 값과 같은지 확인한다
 
-**서명의 빈칸이 ` / `로 나옴**
-- 프로필에 `hanja_name` / `division_english` / `job_title_english`를 안 채웠다
-- 또는 프로필 키 이름과 템플릿 변수명이 다르다 (예: 프로필 `name`, 템플릿 `{{display_name}}`)
-
-**로고가 안 나옴**
-- `logo_image_path` 경로 오타 또는 서버가 그 파일에 접근 못 함
-- footer 템플릿에 `{{company_logo_img}}`가 없음
-
-**초안에 서명이 안 붙음**
-- 템플릿을 기본값(`is_default=true`)으로 저장 안 했거나 "기본 서명 적용"을 안 함
-
-**미리보기 파일이 어디 생겼는지 모르겠음**
-- `export_dir`를 절대경로로 다시 지정한다
+**도구가 안 보임**
+- AI 앱을 완전히 종료한 뒤 다시 켠다
+- `command` 경로가 setup 완료 화면의 값과 같은지 확인한다
 
 ---
 
 ## 빠른 시작 체크리스트
 
-1. 그룹웨어 SMTP/IMAP 활성화
-2. `python3 --version`으로 3.10+ 확인
-3. `git clone` 후 `pip install -e .`
-4. setup wizard 실행(또는 `cp .env.example .env` 후 수동 입력)
-5. AI 앱에 `UBISAM_ENV_FILE` 절대경로로 연결
-6. AI 앱 재시작
-7. "내 메일 설정 상태 확인해줘" → ready 확인
-8. 기본 프로필 / 인삿말 / 맺음말 / footer 서명 만들기
-9. "기본 서명 미리보기 보여줘"로 확인
-10. "초안 만들어줘" → 확인 → "보내줘"
+1. Python 3.10+ 확인
+2. `git clone` 후 `pip install -e .`
+3. setup wizard 실행
+4. wizard 완료 화면의 Claude/Codex 설정을 AI 앱에 붙여넣기
+5. AI 앱 재시작
+6. "내 메일 설정 상태 확인해줘" → ready 확인
+7. "초안 만들어줘" → 확인 → "보내줘"
 
 한 번 세팅하면 이후엔 말로만 시키면 된다.
