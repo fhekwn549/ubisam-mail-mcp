@@ -65,13 +65,7 @@
 
 ## 환경 변수
 
-`.env.example`를 복사해 `.env`를 만들고 각자 계정값을 넣는다:
-
-```bash
-git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
-cd ubisam-mail-mcp
-cp .env.example .env
-```
+처음 사용자는 setup wizard(`ubisam-mail-mcp-setup --web-setup`)를 권장한다. 수동 설정이 필요하면 `.env.example`를 복사해 `.env`를 만들고 각자 계정값을 넣는다.
 
 사용자별 값:
 - `UBISAM_SMTP_USERNAME`
@@ -113,9 +107,9 @@ cp .env.example .env
 
 공식 MCP Python SDK(`mcp`) 기반의 표준 stdio MCP 서버다. 의존성을 설치하면 `ubisam-mail-mcp` 진입점이 생긴다(가상환경 권장):
 
-### Desktop 앱용: Windows PowerShell
+초보자용 전체 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md)를 따른다. 핵심 설치 명령만 요약하면 다음과 같다.
 
-Claude Desktop이나 Codex Desktop 같은 Windows 데스크톱 앱에 붙일 때는 PowerShell에서 설치한다:
+Desktop 앱용 Windows PowerShell:
 
 ```powershell
 git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
@@ -127,16 +121,7 @@ python --version
 python -m pip install -e .
 ```
 
-Python이 아예 없는 PC는 Python 3.12 또는 3.13 설치를 권장한다. Git이 없으면 먼저 설치한다:
-
-```powershell
-winget install Git.Git
-winget install Python.Python.3.12
-```
-
-### CLI용: Ubuntu/WSL
-
-Claude Code나 Codex CLI처럼 Ubuntu/WSL 터미널에서 쓸 때는 Ubuntu 안에 설치한다:
+CLI용 Ubuntu/WSL:
 
 ```bash
 sudo apt update
@@ -148,24 +133,7 @@ python -m pip install -e .
 ubisam-mail-mcp          # stdio MCP 서버 시작(테스트용, Ctrl+C 종료)
 ```
 
-Windows에서 여러 Python 버전이 설치돼 있으면 사용할 버전을 명시해 venv를 만든다. 예:
-
-```powershell
-py --list
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python --version
-python -m pip install -e .
-```
-
-이미 `.venv`를 Python 3.9 이하로 만든 상태라면 Python만 새로 설치해도 기존 `.venv`는 바뀌지 않는다. 삭제 후 다시 만든다:
-
-```powershell
-Remove-Item -Recurse -Force .venv
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-```
+Python/Git 설치, 여러 Python 버전 선택, 기존 `.venv` 재생성 같은 자세한 설명은 [처음 사용 가이드](docs/personal-setup-tutorial.md#2단계-프로그램-설치)에 있다.
 
 처음 사용자라면 `.env`를 직접 편집하지 말고 setup wizard를 먼저 실행한다:
 
@@ -232,110 +200,7 @@ PYTHONPATH=src python3 -m ubisam_mail_mcp.server
 
 표준 stdio transport라 MCP를 지원하는 모든 agent(Claude Code, Claude Desktop, Codex 등)에서 같은 방식으로 붙는다. 클라이언트는 임의 디렉토리에서 서버를 실행하므로 `UBISAM_ENV_FILE`로 `.env` 절대경로를 지정한다. `command`는 PATH에 진입점이 없으면 절대경로로 적는다(가상환경이면 `/absolute/path/to/ubisam-mail-mcp/.venv/bin/ubisam-mail-mcp`).
 
-### Claude Code
-
-`claude mcp add` 명령이 설정을 자동 기록한다(user scope `~/.claude.json`, 또는 프로젝트 루트 `.mcp.json`). 등록 확인은 `claude mcp list`.
-
-```bash
-claude mcp add ubisam-mail \
-  --env UBISAM_ENV_FILE=/absolute/path/to/ubisam-mail-mcp/.env \
-  -- ubisam-mail-mcp
-```
-
-### Claude Desktop
-
-설정 파일(앱 메뉴 **Settings → Developer → Edit Config**로도 열린다):
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-수정 후 앱을 재시작한다.
-
-```json
-{
-  "mcpServers": {
-    "ubisam-mail": {
-      "command": "ubisam-mail-mcp",
-      "env": { "UBISAM_ENV_FILE": "/absolute/path/to/ubisam-mail-mcp/.env" }
-    }
-  }
-}
-```
-
-#### Windows + WSL (검증된 절차)
-
-Claude Desktop은 Windows 네이티브 앱이라 WSL 안의 리눅스 진입점/`.env`를 직접 실행하지 못한다. `wsl.exe`로 감싸 호출해야 한다. 아래는 실제로 막혔던 지점과 해결을 순서대로 정리한 것이다.
-
-**전제 — stdio MCP는 로컬 프로세스다.** Claude Desktop이 도는 바로 그 PC의 WSL 안에 서버가 설치돼 있어야 한다. 다른 PC의 WSL에 설치한 서버는 쓸 수 없다(사용자명/배포판 이름이 같아도 별개 머신이면 그 PC에 다시 설치). 실제로 한 PC에서 동작하던 설정을 다른 PC에 그대로 넣었더니, 이름은 같은 `Ubuntu-22.04`인데 그 안에 서버가 없어서 `No such file or directory`가 났다.
-
-1. **그 PC의 WSL에 서버 설치** (WSL 터미널):
-   ```bash
-   cd ~
-   git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
-   cd ubisam-mail-mcp
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install -e .
-   ubisam-mail-mcp-setup --web-setup     # .env 생성 (계정/비번 입력)
-   which ubisam-mail-mcp                  # 진입점 절대경로 확인 (venv 경로가 나온다)
-   ```
-
-2. **배포판 이름 확인** (Windows PowerShell):
-   ```powershell
-   wsl -l -v
-   ```
-   서버를 설치한 배포판의 정확한 NAME(예: `Ubuntu-22.04`)을 기록한다. config에서 `-d`로 이 이름을 **반드시 명시**한다 — 생략하면 Docker Desktop이 만든 `docker-desktop` 등이 기본 배포판으로 잡혀 서버가 즉시 죽는다(`No such file or directory`).
-
-3. **설정 파일 편집**: 앱 **Settings → Developer → Edit Config** → `claude_desktop_config.json`. 기존에 `preferences` 같은 다른 키가 들어 있으면 지우지 말고, `mcpServers`를 같은 최상위 레벨에 형제로 추가한다(앞 키 뒤 콤마 주의).
-   ```json
-   {
-     "mcpServers": {
-       "ubisam-mail": {
-         "command": "wsl.exe",
-         "args": ["-d","Ubuntu-22.04","-e","bash","-c","UBISAM_ENV_FILE=/home/yourname/ubisam-mail-mcp/.env exec /home/yourname/ubisam-mail-mcp/.venv/bin/ubisam-mail-mcp"]
-       }
-     }
-   }
-   ```
-   - `-d Ubuntu-22.04`: 2단계에서 확인한 배포판 이름으로 교체.
-   - `UBISAM_ENV_FILE`·`exec` 뒤 경로: 1단계의 `.env` 경로와 `which` 출력 절대경로로 교체(사용자명/홈이 다르면 그 값으로).
-   - `bash -c`를 쓴다(`-lc` 아님: login shell의 profile 출력이 stdio 프로토콜을 깨뜨릴 수 있다). `exec`로 bash를 서버 프로세스로 교체해 종료/시그널을 깔끔하게 한다.
-   - 환경변수는 Windows `env` 필드 대신 명령 안에 inline으로 둔다(`wsl.exe`로의 env 전달은 `WSLENV` 등 별도 설정이 필요해 inline이 가장 견고).
-
-4. **앱 완전 종료 후 재시작**: 트레이 아이콘 우클릭 → Quit 후 다시 실행한다(창만 닫으면 설정이 반영되지 않는다).
-
-5. **도구 확인**: 새 **일반 채팅(Chat)**에서 입력창 도구 아이콘에 `ubisam-mail`이 보이는지 확인하고, "ubisam-mail 도구로 메일함 목록을 불러와줘"처럼 요청한다. "로컬 세션/Cowork" 모드에서 요청하면 폴더 선택창만 뜨고 MCP가 호출되지 않으니 반드시 일반 채팅에서 쓴다.
-
-**트러블슈팅**
-- 로그: `%APPDATA%\Claude\logs\mcp-server-ubisam-mail.log` 마지막 줄에 실제 stderr가 찍힌다.
-- `No such file or directory`: `-d` 배포판 이름이 틀렸거나 그 배포판에 서버가 없는 것. `wsl -d <이름> -- ls <which경로>`로 파일 존재를 직접 확인한다.
-- 같은 명령을 PowerShell에서 직접 실행해 재현:
-  ```powershell
-  wsl -d Ubuntu-22.04 -e bash -c "UBISAM_ENV_FILE=/home/yourname/ubisam-mail-mcp/.env exec /home/yourname/ubisam-mail-mcp/.venv/bin/ubisam-mail-mcp"
-  ```
-  커서만 깜빡이며 멈추면 정상(`Ctrl+C`로 종료), 에러가 뜨면 그 메시지가 원인이다.
-
-### Codex
-
-설정 파일:
-- macOS/Linux: `~/.codex/config.toml`
-- Windows: `%USERPROFILE%\.codex\config.toml`
-
-Codex Desktop 앱은 Claude Desktop과 같은 `command`와 `UBISAM_ENV_FILE` 값을 쓴다. 차이는 Claude Desktop은 JSON, Codex Desktop은 TOML 형식으로 저장한다는 점뿐이다.
-
-```toml
-[mcp_servers.ubisam_mail]
-command = "ubisam-mail-mcp"
-env = { UBISAM_ENV_FILE = "/absolute/path/to/ubisam-mail-mcp/.env" }
-```
-
-Windows에서 Claude Desktop에 이미 붙인 MCP를 Codex Desktop에도 붙이려면 Claude의 `command`와 `UBISAM_ENV_FILE` 경로를 그대로 가져와 TOML로 적는다:
-
-```toml
-[mcp_servers.ubisam_mail]
-command = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.venv\\Scripts\\ubisam-mail-mcp.exe"
-env = { UBISAM_ENV_FILE = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.env" }
-```
-
-진입점을 설치하지 않고 소스에서 직접 띄우려면 `command = "python3"`, `args = ["-m", "ubisam_mail_mcp.server"]`로 두고 `env`에 `PYTHONPATH = "/absolute/path/to/ubisam-mail-mcp/src"`를 추가한다.
+Claude Desktop, Codex Desktop, Claude Code 설정 예시는 setup wizard 완료 페이지에 출력된다. 초보자용 클라이언트 연결 절차는 [처음 사용 가이드](docs/personal-setup-tutorial.md#4단계-ai-앱mcp-클라이언트에-연결)에 모아 둔다.
 
 설명:
 - 설정은 MCP 실행 경로만 잡는다. 실제 계정값은 `.env`에서 자동 로드한다.
