@@ -183,6 +183,23 @@ def test_update_draft_reapplies_signature(tmp_path):
     assert rendered["rendered_text_body"] == "머리말\n수정 본문\n꼬리말"
 
 
+def test_update_draft_rendered_html_preserves_text_line_breaks(tmp_path):
+    service, _sender = make_service(tmp_path)
+    draft = service.create_draft(
+        subject="hello",
+        to=["user@example.com"],
+        text_body="첫 줄\n둘째 줄",
+        apply_default_signature=False,
+        apply_default_greeting_template=False,
+        apply_default_closing_template=False,
+    )
+
+    updated = service.update_draft(draft.id, text_body="수정 첫 줄\n수정 둘째 줄\n\n수정 셋째 줄")
+    rendered = updated.to_dict()
+
+    assert "수정 첫 줄<br>수정 둘째 줄<br><br>수정 셋째 줄" in rendered["rendered_html_body"]
+
+
 def test_update_draft_can_clear_signature(tmp_path):
     service, _sender = make_service(tmp_path)
     signature = service.create_signature(
@@ -257,7 +274,7 @@ def test_render_draft_returns_applied_templates(tmp_path):
     rendered = service.render_draft(draft.id)
 
     assert rendered.text_body == "안녕하세요.\n\n본문\n\n감사합니다.\n\n담당자 홍길동"
-    assert "안녕하세요.\n\n본문\n\n감사합니다." in rendered.html_body
+    assert "안녕하세요.<br><br>본문<br><br>감사합니다." in rendered.html_body
     assert '<div style="height:1.5em;"></div>' not in rendered.html_body
     assert rendered.greeting_template_id == greeting.id
     assert rendered.closing_template_id == closing.id

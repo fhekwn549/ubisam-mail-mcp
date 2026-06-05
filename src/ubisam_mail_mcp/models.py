@@ -476,10 +476,11 @@ def _render_template(template: str, context: dict[str, str]) -> str:
 def _text_to_html(text: str) -> str:
     if not text:
         return ""
+    escaped_text = html.escape(text).replace("\r\n", "\n").replace("\r", "\n")
     return (
-        f'<div style="white-space:pre-line; line-height:{DEFAULT_TEXT_LINE_HEIGHT}; '
+        f'<div style="line-height:{DEFAULT_TEXT_LINE_HEIGHT}; '
         f'font-size:{DEFAULT_TEXT_FONT_SIZE_PX}px; color:#222;">'
-        + html.escape(text)
+        + escaped_text.replace("\n", "<br>")
         + "</div>"
     )
 
