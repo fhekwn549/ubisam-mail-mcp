@@ -762,10 +762,11 @@ def _web_success_html(result: dict[str, str]) -> str:
 <body>
 <h1>설정 완료</h1>
 <p><code>.env</code> 저장 위치: <code>{env_file}</code></p>
-<p>아래 중 사용하는 client 설정에 넣으세요.</p>
 <h2>Claude Code</h2>
+<p>아래 명령을 터미널에 한 줄로 입력하세요.</p>
 <pre>{_esc(result["claude_command"])}</pre>
 <h2>Codex</h2>
+<p>터미널에서 <code>nano ~/.codex/config.toml</code>을 실행한 뒤, 아래 내용을 파일에 붙여넣고 저장하세요.</p>
 <pre>{_esc(result["codex_config"])}</pre>
 <p>설정 후 Claude/Codex를 재시작하고 <code>내 메일 설정 상태 확인해줘.</code>라고 입력하세요.</p>
 <p>command 절대경로: <code>{command_path}</code></p>
@@ -781,11 +782,7 @@ def _web_error_html(exc: Exception) -> str:
 
 def _claude_command_snippet(env_file: Path) -> str:
     command_path = (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
-    return (
-        "claude mcp add ubisam-mail \\\n"
-        f"  --env UBISAM_ENV_FILE={env_file} \\\n"
-        f"  -- {command_path}"
-    )
+    return f"claude mcp add ubisam-mail --env UBISAM_ENV_FILE={env_file} -- {command_path}"
 
 
 def _codex_config_snippet(env_file: Path) -> str:

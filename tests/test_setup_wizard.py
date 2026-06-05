@@ -209,6 +209,8 @@ def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
 
     assert result["env_file"] == str((tmp_path / ".env").resolve())
     assert "UBISAM_ENV_FILE" in result["codex_config"]
+    assert result["claude_command"].startswith("claude mcp add ubisam-mail --env")
+    assert "\\\n" not in result["claude_command"]
     repository = DraftRepository(tmp_path / "mail.db")
     profile = repository.get_default_signature_profile()
     assert profile is not None
@@ -263,6 +265,23 @@ def test_web_signature_page_uses_hanja_toggle():
     assert "preview.srcdoc" in html
     assert "signatureHtml" in html
     assert "비밀번호" not in html
+
+
+def test_web_success_page_explains_where_to_paste_client_settings():
+    from ubisam_mail_mcp.setup_wizard import _web_success_html
+
+    html = _web_success_html(
+        {
+            "env_file": "/example/project/config.env",
+            "command_path": "/example/project/.venv/bin/ubisam-mail-mcp",
+            "claude_command": "claude mcp add ubisam-mail --env UBISAM_ENV_FILE=/example/project/config.env -- /example/project/.venv/bin/ubisam-mail-mcp",
+            "codex_config": '[mcp_servers.ubisam_mail]\ncommand = "/example/project/.venv/bin/ubisam-mail-mcp"',
+        }
+    )
+
+    assert "터미널에 한 줄로 입력" in html
+    assert "nano ~/.codex/config.toml" in html
+    assert "파일에 붙여넣고 저장" in html
 
 
 def test_web_setup_prefills_existing_env_and_signature_values(tmp_path, monkeypatch):

@@ -135,6 +135,7 @@ wizard가 처리하는 것:
 - Claude/Codex 설정에 붙여 넣을 설정 예시 출력
 
 `UBISAM_ENV_FILE`은 MCP 서버가 어느 `.env` 파일을 읽을지 알려주는 값이다. setup 완료 페이지의 Claude/Codex 예시를 그대로 붙여 넣으면 된다.
+Claude Code 예시는 터미널에 한 줄로 입력한다. Codex 예시는 `nano ~/.codex/config.toml`로 설정 파일을 열고 붙여 넣는다.
 
 웹 setup 화면은 일반 사용자에게 필요한 값만 보여준다. 경로, DB, SMTP/IMAP host/port는 기본값으로 처리한다. 비밀번호는 보기/숨기기 토글이 있고, 한자 이름은 사용할 때만 체크해서 입력한다.
 재실행하면 기존 `.env`와 로컬 DB에서 메일 주소, 이름, 서명 값, 인삿말/맺음말을 다시 채운다. 비밀번호는 보안상 다시 입력한다. footer에는 기본 회사 로고가 자동 포함되고, 글자 크기는 로컬 footer 기준으로 맞춘다.

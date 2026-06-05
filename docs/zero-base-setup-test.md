@@ -77,6 +77,8 @@ ubisam-mail-mcp-setup --skip-signature-setup
 - `downloads/setup-preview/signature-preview.html` 생성
 - 완료 페이지에 Claude/Codex 설정 예시 출력
 - 설정 예시에 `UBISAM_ENV_FILE` 절대경로 포함
+- Claude Code 예시는 터미널에 한 줄로 입력한다는 안내가 보임
+- Codex 예시는 `nano ~/.codex/config.toml`에 붙여넣으라는 안내가 보임
 
 ## 3. Claude Code 연결
 
