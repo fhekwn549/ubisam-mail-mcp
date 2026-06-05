@@ -1,5 +1,7 @@
 # ubisam-mail-mcp
 
+처음 설치하는 동료는 [처음 사용 가이드](docs/personal-setup-tutorial.md)부터 따라가면 된다.
+
 ## 사전 준비 (필수)
 
 1. **Python 3.10 이상 + pip** — 확인: `python3 --version` 또는 Windows PowerShell에서 `py --list`. 3.10 미만이면 동작하지 않으니 먼저 3.10+를 설치한다. Python이 아예 없는 PC는 3.12 또는 3.13 설치를 권장한다. (가상환경 venv는 파이썬 버전을 바꿔주지 않고, 선택한 Python으로 격리 환경을 만든다.)
