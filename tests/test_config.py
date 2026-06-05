@@ -119,7 +119,7 @@ def test_contacts_and_default_from_name_read_from_env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     contacts_path = tmp_path / "contacts.json"
     contacts_path.write_text(
-        '{"contacts":[{"name":"홍길동","email":"your-email@ubisam.com"}]}',
+        '{"contacts":[{"name":"홍길동","email":"hong.gildong@ubisam.com"}]}',
         encoding="utf-8",
     )
     monkeypatch.setenv("UBISAM_SMTP_HOST", "mail.ubisam.com")
@@ -132,4 +132,4 @@ def test_contacts_and_default_from_name_read_from_env(monkeypatch, tmp_path):
 
     assert config.default_from_name == "홍길동"
     assert config.contacts_path == contacts_path
-    assert config.load_contacts() == {"your-email@ubisam.com": "홍길동"}
+    assert config.load_contacts() == {"hong.gildong@ubisam.com": "홍길동"}

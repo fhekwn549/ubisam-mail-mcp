@@ -105,8 +105,9 @@ cp .env.example .env
 
 ## 4단계. AI 앱(MCP 클라이언트)에 연결
 
-쓰는 AI 앱에 맞는 항목 **하나만** 따라 하면 된다. 공통 규칙: `.env`의 **절대경로**를 `UBISAM_ENV_FILE`로 알려준다.
-(절대경로 = `/home/내이름/ubisam-mail-mcp/.env` 처럼 맨 앞부터 전체 경로)
+쓰는 AI 앱에 맞는 항목 하나를 따라 한다. 공통 규칙: MCP 서버를 실행하는 `command`와 설정 파일 경로 `UBISAM_ENV_FILE`을 AI 앱 설정에 넣는다.
+
+Claude Desktop과 Codex Desktop은 같은 `command`와 `UBISAM_ENV_FILE` 값을 쓴다. 차이는 Claude Desktop은 JSON, Codex Desktop은 TOML 형식이라는 점뿐이다.
 
 ### Claude Desktop을 쓰는 경우
 
@@ -123,6 +124,8 @@ cp .env.example .env
 }
 ```
 
+Windows PowerShell에 설치한 MCP를 Claude Desktop에 이미 붙였다면, 그 `command`와 `UBISAM_ENV_FILE` 값을 그대로 Codex Desktop에도 쓴다.
+
 저장 후 **앱을 완전히 종료했다 다시 켠다**.
 
 ### Claude Code(터미널)를 쓰는 경우
@@ -135,9 +138,9 @@ claude mcp add ubisam-mail \
 
 > 등록 후에는 Claude Code를 한 번 재시작해야 메일 기능이 대화에 나타난다.
 
-### Codex를 쓰는 경우
+### Codex Desktop을 쓰는 경우
 
-`~/.codex/config.toml`에:
+Codex Desktop → **Settings → Configuration → Open config.toml**을 열거나, `~/.codex/config.toml`에 아래를 넣는다:
 
 ```toml
 [mcp_servers.ubisam_mail]
@@ -145,7 +148,22 @@ command = "ubisam-mail-mcp"
 env = { UBISAM_ENV_FILE = "/절대경로/ubisam-mail-mcp/.env" }
 ```
 
-자세한 클라이언트별 설명은 [README.md](/home/yourname/ubisam-mail-mcp/README.md)의 "MCP 클라이언트 설정" 참고.
+Windows에서 Claude Desktop 설정이 이미 이렇게 되어 있다면:
+
+```json
+"command": "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.venv\\Scripts\\ubisam-mail-mcp.exe",
+"UBISAM_ENV_FILE": "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.env"
+```
+
+Codex는 같은 값을 TOML로 적는다:
+
+```toml
+[mcp_servers.ubisam_mail]
+command = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.venv\\Scripts\\ubisam-mail-mcp.exe"
+env = { UBISAM_ENV_FILE = "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.env" }
+```
+
+자세한 클라이언트별 설명은 [README.md](../README.md)의 "MCP 클라이언트 설정" 참고.
 
 ---
 
@@ -190,11 +208,11 @@ config_status()
 > 인삿말·맺음말은 글자만 있으면 되므로 **텍스트만** 넣으면 된다(HTML은 자동 생성). 반면 footer 서명은 색상·로고 같은 스타일이 핵심이라 **HTML과 텍스트를 함께** 둔다. 그래서 예시 파일도 인삿말/맺음말은 텍스트만, footer는 둘 다 들어 있다.
 
 먼저 복붙용 예시 파일 4개를 열어 **본인 정보로 수정**한다(특히 프로필):
-- [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json) ← 이름/부서/연락처/로고
-- [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
-- [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
-- [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
-- 로고 이미지: [logo-color.png](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/assets/logo-color.png)
+- [signature-profile.example.json](examples/personal-setup/signature-profile.example.json) ← 이름/부서/연락처/로고
+- [greeting-template.example.json](examples/personal-setup/greeting-template.example.json)
+- [closing-template.example.json](examples/personal-setup/closing-template.example.json)
+- [signature-template.example.json](examples/personal-setup/signature-template.example.json)
+- 로고 이미지: [logo-color.png](examples/personal-setup/assets/logo-color.png)
 
 > 예시 값은 익명화 샘플 `홍길동 / John Doe / 洪吉童` 기준이다.
 
@@ -212,7 +230,7 @@ config_status()
 > **"기본 맺음말도 만들어줘. '확인 부탁드립니다. 감사합니다.'로."**
 > **"기본 footer 서명도 만들어줘. 이름/영문명/한자명, 부서/영문부서/영문직함, 전화/휴대폰/이메일이 한 줄씩 나오게."**
 
-구체적인 tool 호출 형태(복붙 가능)는 [personal-setup-tool-call-examples.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tool-call-examples.md)에 정리돼 있다.
+구체적인 tool 호출 형태(복붙 가능)는 [personal-setup-tool-call-examples.md](personal-setup-tool-call-examples.md)에 정리돼 있다.
 
 ### 6-2. 미리보기로 확인
 

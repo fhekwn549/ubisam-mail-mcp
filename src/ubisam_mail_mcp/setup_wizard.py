@@ -4,6 +4,7 @@ import argparse
 import getpass
 import html
 import http.server
+import json
 import os
 import re
 import shlex
@@ -472,9 +473,10 @@ def _run_setup_from_web_payload(
         _setup_default_signature(config, values=values, args=setup_args)
     return {
         "env_file": str(values.env_file),
-        "command_path": str((Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()),
+        "command_path": str(_entrypoint_path()),
         "codex_config": _codex_config_snippet(values.env_file),
         "claude_command": _claude_command_snippet(values.env_file),
+        "claude_desktop_config": _claude_desktop_snippet(values.env_file),
     }
 
 
@@ -738,7 +740,7 @@ function refresh() {{
     textBlock("본문 테스트입니다."),
     textBlock(renderTemplate(value("closing_text"))),
     signatureHtml(nameHead, dept, contact)
-  ].filter(Boolean).join('<div style="height:18px;"></div>');
+  ].filter(Boolean).join('<div style="height:1.5em;"></div>');
   preview.srcdoc = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>body{{font-family:'Malgun Gothic',sans-serif;margin:24px;color:#222;}}</style></head><body>${{bodyHtml}}</body></html>`;
 }}
 form.addEventListener("input", refresh);
@@ -765,8 +767,12 @@ def _web_success_html(result: dict[str, str]) -> str:
 <h2>Claude Code</h2>
 <p>아래 명령을 터미널에 한 줄로 입력하세요.</p>
 <pre>{_esc(result["claude_command"])}</pre>
+<h2>Claude Desktop</h2>
+<p>앱 메뉴 <code>Settings → Developer → Edit Config</code>로 <code>claude_desktop_config.json</code>을 엽니다. 파일이 비어 있으면 아래 내용을 그대로, 기존 내용이 있으면 <code>mcpServers</code> 블록만 같은 최상위에 추가한 뒤 저장하고, 앱을 완전히 종료(트레이 아이콘 우클릭 → Quit)했다 다시 실행하세요.</p>
+<pre>{_esc(result["claude_desktop_config"])}</pre>
 <h2>Codex</h2>
-<p>터미널에서 <code>nano ~/.codex/config.toml</code>을 실행한 뒤, 아래 내용을 파일에 붙여넣고 저장하세요.</p>
+<p>Codex Desktop 앱은 Claude Desktop과 같은 <code>command</code>와 <code>UBISAM_ENV_FILE</code> 값을 씁니다. 차이는 Claude Desktop은 JSON, Codex Desktop은 TOML 형식으로 저장한다는 점뿐입니다.</p>
+<p>Codex Desktop에서 <code>Settings → Configuration → Open config.toml</code>을 열거나, 터미널에서 <code>nano ~/.codex/config.toml</code>을 실행한 뒤 아래 내용을 붙여넣고 저장하세요.</p>
 <pre>{_esc(result["codex_config"])}</pre>
 <p>설정 후 Claude/Codex를 재시작하고 <code>내 메일 설정 상태 확인해줘.</code>라고 입력하세요.</p>
 <p>command 절대경로: <code>{command_path}</code></p>
@@ -780,13 +786,31 @@ def _web_error_html(exc: Exception) -> str:
 <body><h1>설정 실패</h1><p>{_esc(str(exc))}</p><p>터미널에서 다시 <code>ubisam-mail-mcp-setup --web-setup</code>를 실행하세요.</p></body></html>"""
 
 
+def _entrypoint_path() -> Path:
+    if os.name == "nt":
+        return (Path.cwd() / ".venv" / "Scripts" / "ubisam-mail-mcp.exe").resolve()
+    return (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
+
+
 def _claude_command_snippet(env_file: Path) -> str:
-    command_path = (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
+    command_path = _entrypoint_path()
     return f"claude mcp add ubisam-mail --env UBISAM_ENV_FILE={env_file} -- {command_path}"
 
 
+def _claude_desktop_snippet(env_file: Path) -> str:
+    config = {
+        "mcpServers": {
+            "ubisam-mail": {
+                "command": str(_entrypoint_path()),
+                "env": {"UBISAM_ENV_FILE": str(env_file)},
+            }
+        }
+    }
+    return json.dumps(config, indent=2, ensure_ascii=False)
+
+
 def _codex_config_snippet(env_file: Path) -> str:
-    command_path = (Path.cwd() / ".venv" / "bin" / "ubisam-mail-mcp").resolve()
+    command_path = _entrypoint_path()
     return (
         "[mcp_servers.ubisam_mail]\n"
         f'command = "{command_path}"\n'

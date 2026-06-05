@@ -276,12 +276,18 @@ def test_web_success_page_explains_where_to_paste_client_settings():
             "command_path": "/example/project/.venv/bin/ubisam-mail-mcp",
             "claude_command": "claude mcp add ubisam-mail --env UBISAM_ENV_FILE=/example/project/config.env -- /example/project/.venv/bin/ubisam-mail-mcp",
             "codex_config": '[mcp_servers.ubisam_mail]\ncommand = "/example/project/.venv/bin/ubisam-mail-mcp"',
+            "claude_desktop_config": '{\n  "mcpServers": {\n    "ubisam-mail": {}\n  }\n}',
         }
     )
 
     assert "터미널에 한 줄로 입력" in html
+    assert "같은 <code>command</code>와 <code>UBISAM_ENV_FILE</code> 값을 씁니다" in html
+    assert "Claude Desktop은 JSON, Codex Desktop은 TOML 형식" in html
+    assert "Settings → Configuration → Open config.toml" in html
     assert "nano ~/.codex/config.toml" in html
-    assert "파일에 붙여넣고 저장" in html
+    assert "아래 내용을 붙여넣고 저장" in html
+    assert "<h2>Claude Desktop</h2>" in html
+    assert "claude_desktop_config.json" in html
 
 
 def test_web_setup_prefills_existing_env_and_signature_values(tmp_path, monkeypatch):

@@ -1,6 +1,6 @@
 # ubisam-mail-mcp 자연어 요청 ↔ Tool 호출 예문
 
-이 문서는 [personal-setup-tutorial.md](/home/yourname/ubisam-mail-mcp/docs/personal-setup-tutorial.md)의 짝꿍 문서다.
+이 문서는 [personal-setup-tutorial.md](personal-setup-tutorial.md)의 짝꿍 문서다.
 
 - **왼쪽("이렇게 말하세요")**: AI 채팅창에 평소처럼 한국어로 부탁하는 문장.
 - **오른쪽(코드 블록)**: 그 부탁을 받은 AI가 내부적으로 호출하는 실제 tool 형태.
@@ -34,7 +34,7 @@ config_status()
 
 > 이렇게 말하세요: **"이 정보로 기본 서명 프로필 만들어줘. 이름 홍길동, 영문 John Doe, 한자 洪吉童, 부서 로봇자동화사업부, 팀 로봇팀, 직급 사원, 영문부서 Robot Automation, 영문직함 Software Engineer, 대표전화 02-1234-5678, 휴대폰 010-1234-5678, 이메일 hong.gildong@ubisam.com, 로고는 /절대경로/logo-color.png. 기본값으로 해줘."**
 
-참조 파일: [signature-profile.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-profile.example.json)
+참조 파일: [signature-profile.example.json](examples/personal-setup/signature-profile.example.json)
 
 ```text
 create_signature_profile(
@@ -65,7 +65,7 @@ create_signature_profile(
 
 > 이렇게 말하세요: **"기본 인삿말 만들어줘. '안녕하십니까. {부서} {팀} {이름} {직급}입니다.' 형식으로."**
 
-참조 파일: [greeting-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/greeting-template.example.json)
+참조 파일: [greeting-template.example.json](examples/personal-setup/greeting-template.example.json)
 
 ```text
 create_greeting_template(
@@ -83,7 +83,7 @@ create_greeting_template(
 
 > 이렇게 말하세요: **"기본 맺음말 만들어줘. '확인 부탁드립니다. 감사합니다.'로."**
 
-참조 파일: [closing-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/closing-template.example.json)
+참조 파일: [closing-template.example.json](examples/personal-setup/closing-template.example.json)
 
 ```text
 create_closing_template(
@@ -101,7 +101,7 @@ create_closing_template(
 
 > 이렇게 말하세요: **"기본 footer 서명 만들어줘. 이름/영문명/한자명, 부서/영문부서/영문직함, 전화/휴대폰/이메일이 한 줄씩 나오게. 회사 서명 스타일로."**
 
-참조 파일: [signature-template.example.json](/home/yourname/ubisam-mail-mcp/docs/examples/personal-setup/signature-template.example.json)
+참조 파일: [signature-template.example.json](examples/personal-setup/signature-template.example.json)
 
 ```text
 create_signature(
