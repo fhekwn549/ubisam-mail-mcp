@@ -598,7 +598,7 @@ textarea{{min-height:92px;resize:vertical;line-height:1.5;}}
 .inline-check input[type="checkbox"]{{width:auto;}}
 .inline-check input[type="text"]{{flex:1;}}
 .section{{margin-top:18px;padding-top:14px;border-top:1px solid #e5e9ee;}}
-.preview{{white-space:pre-wrap;min-height:520px;background:#fff;border:1px solid #c7d0d9;border-radius:8px;padding:16px;line-height:1.55;font-size:15px;}}
+.preview-frame{{width:100%;min-height:560px;background:#fff;border:1px solid #c7d0d9;border-radius:8px;}}
 .actions{{display:flex;justify-content:flex-end;margin-top:16px;gap:8px;}}
 button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;}}
 .hint{{font-size:13px;color:#59636e;margin:8px 0 0;}}
@@ -638,7 +638,7 @@ button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6p
 </section>
 <section class="panel">
 <h2>실시간 미리보기</h2>
-<div id="preview" class="preview"></div>
+<iframe id="preview" class="preview-frame" title="메일 서식 미리보기"></iframe>
 </section>
 </div>
 </form>
@@ -653,21 +653,40 @@ function parts(items, sep=" / ") {{ return items.filter(Boolean).join(sep); }}
 function renderTemplate(text) {{
   return text.replace(/{{{{\\s*([a-zA-Z0-9_]+)\\s*}}}}/g, (_m, key) => value(key));
 }}
+function escapeHtml(text) {{
+  return text.replace(/[&<>"']/g, char => ({{ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }}[char]));
+}}
+function textBlock(text) {{
+  return `<div style="line-height:1.5;font-size:16px;color:#222;">${{escapeHtml(text).replace(/\\n/g, "<br>")}}</div>`;
+}}
+function signatureHtml(nameHead, dept, contact) {{
+  const deptHtml = dept ? `<div style="margin-top:10px;font-size:19px;font-weight:700;line-height:1.3;color:#8a8a8a;">${{escapeHtml(dept)}}</div>` : "";
+  const contactHtml = contact ? `<div style="margin-top:14px;font-size:18px;line-height:1.45;color:#6f6f6f;">${{contact}}</div>` : "";
+  return `
+    <hr style="border:none;border-top:1px solid #cfcfcf;margin:0 0 14px 0;">
+    <div style="font-family:'Malgun Gothic',sans-serif;color:#7c7c7c;">
+      <div style="font-size:24px;font-weight:700;line-height:1.25;color:#8a8a8a;display:flex;align-items:flex-end;gap:14px;">
+        <span style="display:inline-block;line-height:1;transform:translateY(-4px);">${{escapeHtml(nameHead)}}</span>
+      </div>
+      ${{deptHtml}}
+      ${{contactHtml}}
+    </div>`;
+}}
 function refresh() {{
   const nameHead = parts([parts([value("display_name"), value("position")], " "), value("english_name"), value("hanja_name")]);
   const dept = parts([value("department"), value("division_english"), value("job_title_english")]);
   const contact = parts([
-    value("office_phone") ? "t " + value("office_phone") : "",
-    value("mobile") ? "m " + value("mobile") : "",
-    value("email") ? "e " + value("email") : ""
-  ], "  ");
-  const lines = [
-    renderTemplate(value("greeting_text")),
-    "본문 테스트입니다.",
-    renderTemplate(value("closing_text")),
-    [nameHead, dept, contact].filter(Boolean).join("\\n")
-  ].filter(Boolean);
-  preview.textContent = lines.join("\\n\\n");
+    value("office_phone") ? `<strong style="color:#222;">t</strong> ${{escapeHtml(value("office_phone"))}}` : "",
+    value("mobile") ? `<strong style="color:#222;">m</strong> ${{escapeHtml(value("mobile"))}}` : "",
+    value("email") ? `<strong style="color:#222;">e</strong> ${{escapeHtml(value("email"))}}` : ""
+  ], " &nbsp;&nbsp; ");
+  const bodyHtml = [
+    textBlock(renderTemplate(value("greeting_text"))),
+    textBlock("본문 테스트입니다."),
+    textBlock(renderTemplate(value("closing_text"))),
+    signatureHtml(nameHead, dept, contact)
+  ].filter(Boolean).join('<div style="height:18px;"></div>');
+  preview.srcdoc = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>body{{font-family:'Malgun Gothic',sans-serif;margin:24px;color:#222;}}</style></head><body>${{bodyHtml}}</body></html>`;
 }}
 form.addEventListener("input", refresh);
 useHanja.addEventListener("change", () => {{

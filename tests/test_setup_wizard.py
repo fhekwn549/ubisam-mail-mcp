@@ -237,6 +237,9 @@ def test_web_signature_page_uses_hanja_toggle():
     assert 'action="/setup"' in html
     assert 'id="useHanja"' in html
     assert 'id="hanjaName"' in html
+    assert "<iframe" in html
+    assert "preview.srcdoc" in html
+    assert "signatureHtml" in html
     assert "비밀번호" not in html
 
 
