@@ -60,15 +60,37 @@ python3 --version
 - Python이 아예 없는 PC는 Python 3.12 또는 3.13 설치를 권장한다. 너무 최신 버전이 부담되면 3.12가 보수적 선택이다.
 - Windows에서 여러 버전이 설치돼 있으면 PowerShell에서 `py --list`로 확인한다.
 
-### 2-2. 레포 받기 / 설치
+### 2-2. 레포 clone / 설치
 
-그룹웨어에서 받은 압축 파일을 풀고 설치한다:
+Claude Desktop이나 Codex Desktop 같은 **Windows 데스크톱 앱**에 붙일 PC라면 PowerShell에서 설치한다:
+
+```powershell
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
+cd ubisam-mail-mcp
+py --list
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+python -m pip install -e .
+```
+
+Git이나 Python이 없으면 먼저 설치한다:
+
+```powershell
+winget install Git.Git
+winget install Python.Python.3.12
+```
+
+Claude Code나 Codex CLI처럼 **Ubuntu/WSL 터미널**에서 쓸 PC라면 Ubuntu 안에 설치한다:
 
 ```bash
-unzip ubisam-mail-mcp.zip      # 받은 압축 파일 풀기
+sudo apt update
+sudo apt install -y git python3 python3-venv python3-pip
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
 cd ubisam-mail-mcp
-python3 -m venv .venv && source .venv/bin/activate   # (선택) 가상환경
-pip install -e .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 ```
 
 `pip install -e .`가 끝나면 `ubisam-mail-mcp`라는 실행 명령이 생긴다. 이게 AI와 메일을 잇는 서버다.
@@ -100,7 +122,22 @@ python -m pip install -e .
 
 ## 3단계. 내 계정 정보 입력 (`.env`)
 
-서버가 내 메일 계정으로 로그인하려면 계정값이 필요하다. 예시 파일을 복사해서 내 값으로 채운다:
+서버가 내 메일 계정으로 로그인하려면 계정값이 필요하다. 처음 사용자는 setup wizard를 권장한다.
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\ubisam-mail-mcp-setup.exe --web-setup
+```
+
+Ubuntu/WSL:
+
+```bash
+source .venv/bin/activate
+ubisam-mail-mcp-setup --web-setup
+```
+
+wizard가 어렵거나 수동으로 설정하려면 예시 파일을 복사해서 내 값으로 채운다:
 
 ```bash
 cp .env.example .env
@@ -333,8 +370,8 @@ AI가 순서대로 처리한다:
 
 1. 그룹웨어 SMTP/IMAP 활성화
 2. `python3 --version`으로 3.10+ 확인
-3. 압축 풀고 `pip install -e .`
-4. `cp .env.example .env` 후 내 계정값 입력
+3. `git clone` 후 `pip install -e .`
+4. setup wizard 실행(또는 `cp .env.example .env` 후 수동 입력)
 5. AI 앱에 `UBISAM_ENV_FILE` 절대경로로 연결
 6. AI 앱 재시작
 7. "내 메일 설정 상태 확인해줘" → ready 확인

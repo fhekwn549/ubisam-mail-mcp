@@ -68,7 +68,7 @@
 `.env.example`를 복사해 `.env`를 만들고 각자 계정값을 넣는다:
 
 ```bash
-unzip ubisam-mail-mcp.zip      # 그룹웨어에서 받은 압축 파일 해제
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
 cd ubisam-mail-mcp
 cp .env.example .env
 ```
@@ -113,14 +113,42 @@ cp .env.example .env
 
 공식 MCP Python SDK(`mcp`) 기반의 표준 stdio MCP 서버다. 의존성을 설치하면 `ubisam-mail-mcp` 진입점이 생긴다(가상환경 권장):
 
-```bash
+### Desktop 앱용: Windows PowerShell
+
+Claude Desktop이나 Codex Desktop 같은 Windows 데스크톱 앱에 붙일 때는 PowerShell에서 설치한다:
+
+```powershell
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
 cd ubisam-mail-mcp
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-ubisam-mail-mcp          # stdio MCP 서버 시작
+py --list
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+python -m pip install -e .
 ```
 
-Windows에서 여러 Python 버전이 설치돼 있으면 사용할 버전을 명시해 venv를 만든다:
+Python이 아예 없는 PC는 Python 3.12 또는 3.13 설치를 권장한다. Git이 없으면 먼저 설치한다:
+
+```powershell
+winget install Git.Git
+winget install Python.Python.3.12
+```
+
+### CLI용: Ubuntu/WSL
+
+Claude Code나 Codex CLI처럼 Ubuntu/WSL 터미널에서 쓸 때는 Ubuntu 안에 설치한다:
+
+```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv python3-pip
+git clone https://github.com/fhekwn549/ubisam-mail-mcp.git
+cd ubisam-mail-mcp
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -e .
+ubisam-mail-mcp          # stdio MCP 서버 시작(테스트용, Ctrl+C 종료)
+```
+
+Windows에서 여러 Python 버전이 설치돼 있으면 사용할 버전을 명시해 venv를 만든다. 예:
 
 ```powershell
 py --list
