@@ -127,14 +127,15 @@ ubisam-mail-mcp-setup --web-setup
 ```
 
 wizard가 처리하는 것:
-- 메일 주소/비밀번호/그룹웨어 내 본인 이름 입력
+- 메일 주소/비밀번호/그룹웨어 내 본인 이름 입력 후 IMAP/SMTP 먼저 검증
 - `.env` 생성(`0600` 권한)
-- IMAP/SMTP 로그인 검증
-- 기본 인삿말/맺음말/footer 서명/프로필을 로컬 SQLite DB에 저장
+- 검증 성공 후 기본 인삿말/맺음말/footer 서명/프로필을 로컬 SQLite DB에 저장
 - footer HTML 미리보기 파일 생성
 - Claude/Codex 설정에 붙여 넣을 설정 예시 출력
 
 `UBISAM_ENV_FILE`은 MCP 서버가 어느 `.env` 파일을 읽을지 알려주는 값이다. setup 완료 페이지의 Claude/Codex 예시를 그대로 붙여 넣으면 된다.
+
+웹 setup 화면은 일반 사용자에게 필요한 값만 보여준다. 경로, DB, SMTP/IMAP host/port는 기본값으로 처리한다. 비밀번호는 보기/숨기기 토글이 있고, 한자 이름은 사용할 때만 체크해서 입력한다.
 
 GUI 없는 서버나 브라우저를 못 여는 환경에서는 터미널 wizard를 쓴다:
 

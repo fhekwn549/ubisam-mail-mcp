@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import urllib.parse
+import uuid
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -303,6 +304,7 @@ def _run_web_setup(args: argparse.Namespace) -> int:
         (args.web_host, args.web_port),
         _make_setup_request_handler(args),
     )
+    server.pending_sessions = {}  # type: ignore[attr-defined]
     url = f"http://{args.web_host}:{server.server_port}/"
     print(f"setup 웹페이지: {url}")
     print("브라우저가 자동으로 열리지 않으면 위 주소를 직접 여세요.")
@@ -324,24 +326,43 @@ def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.Ba
             self._send_html(_web_form_html(args))
 
         def do_POST(self) -> None:
-            if self.path != "/setup":
+            if self.path not in {"/verify", "/setup"}:
                 self.send_error(404)
                 return
             try:
-                content_length = int(self.headers.get("Content-Length", "0"))
-                raw_body = self.rfile.read(content_length).decode("utf-8")
-                payload = {
-                    key: values[-1]
-                    for key, values in urllib.parse.parse_qs(raw_body, keep_blank_values=True).items()
-                }
-                result = _run_setup_from_web_payload(payload, args=args)
+                payload = self._read_form_payload()
+                if self.path == "/verify":
+                    values = _values_from_web_account_payload(payload, args=args)
+                    if not args.skip_connection_check:
+                        _check_connections(_build_config(values))
+                    token = uuid.uuid4().hex
+                    self.server.pending_sessions[token] = values  # type: ignore[attr-defined]
+                    self._send_html(_web_signature_form_html(token=token, values=values, args=args))
+                    return
+
+                token = _required_payload(payload, "setup_token", "setup token")
+                values = self.server.pending_sessions.pop(token, None)  # type: ignore[attr-defined]
+                if values is None:
+                    raise ValueError("setup session expired. Start again.")
+                result = _run_setup_from_web_payload(payload, args=args, values=values)
                 self.server.exit_code = 0  # type: ignore[attr-defined]
                 self._send_html(_web_success_html(result))
             except Exception as exc:
                 self.server.exit_code = 1  # type: ignore[attr-defined]
                 self._send_html(_web_error_html(exc), status=400)
-            finally:
-                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                if self.path == "/setup":
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+            else:
+                if self.path == "/setup":
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+
+        def _read_form_payload(self) -> dict[str, str]:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length).decode("utf-8")
+            return {
+                key: values[-1]
+                for key, values in urllib.parse.parse_qs(raw_body, keep_blank_values=True).items()
+            }
 
         def log_message(self, format: str, *args) -> None:
             return
@@ -357,23 +378,34 @@ def _make_setup_request_handler(args: argparse.Namespace) -> type[http.server.Ba
     return SetupRequestHandler
 
 
-def _run_setup_from_web_payload(payload: dict[str, str], *, args: argparse.Namespace) -> dict[str, str]:
-    values = SetupValues(
+def _values_from_web_account_payload(payload: dict[str, str], *, args: argparse.Namespace) -> SetupValues:
+    return SetupValues(
         env_file=Path(payload.get("env_file") or args.env_file).expanduser().resolve(),
         email=_required_payload(payload, "email", "메일 주소"),
         password=_required_payload(payload, "password", "메일 비밀번호"),
         from_name=_required_payload(payload, "from_name", "그룹웨어 내 본인 이름"),
-        smtp_host=payload.get("smtp_host") or args.smtp_host,
-        smtp_port=int(payload.get("smtp_port") or args.smtp_port),
-        smtp_use_starttls=payload.get("smtp_use_starttls", "on") == "on",
-        smtp_use_tls=payload.get("smtp_use_tls") == "on",
-        imap_host=payload.get("imap_host") or args.imap_host,
-        imap_port=int(payload.get("imap_port") or args.imap_port),
-        imap_use_tls=payload.get("imap_use_tls", "on") == "on",
-        db_path=payload.get("db_path") or args.db_path,
-        download_dir=payload.get("download_dir") or args.download_dir,
-        contacts_path=payload.get("contacts_path") or args.contacts_path,
+        smtp_host=args.smtp_host,
+        smtp_port=args.smtp_port,
+        smtp_use_starttls=not args.smtp_no_starttls,
+        smtp_use_tls=args.smtp_use_tls,
+        imap_host=args.imap_host,
+        imap_port=args.imap_port,
+        imap_use_tls=not args.imap_no_tls,
+        db_path=args.db_path,
+        download_dir=args.download_dir,
+        contacts_path=args.contacts_path,
     )
+
+
+def _run_setup_from_web_payload(
+    payload: dict[str, str],
+    *,
+    args: argparse.Namespace,
+    values: SetupValues | None = None,
+) -> dict[str, str]:
+    already_verified = values is not None
+    if values is None:
+        values = _values_from_web_account_payload(payload, args=args)
     fields = {
         "display_name": payload.get("display_name") or values.from_name,
         "english_name": payload.get("english_name", ""),
@@ -408,7 +440,11 @@ def _run_setup_from_web_payload(payload: dict[str, str], *, args: argparse.Names
     )
     _write_env_file(values, force=args.force or payload.get("force") == "on")
     config = _build_config(values)
-    if payload.get("skip_connection_check") != "on":
+    if (
+        not already_verified
+        and not args.skip_connection_check
+        and payload.get("skip_connection_check") != "on"
+    ):
         _check_connections(config)
     if payload.get("skip_signature_setup") != "on":
         _setup_default_signature(config, values=values, args=setup_args)
@@ -436,58 +472,93 @@ def _web_form_html(args: argparse.Namespace) -> str:
 <title>ubisam-mail-mcp setup</title>
 <style>
 body{{font-family:"Malgun Gothic",system-ui,sans-serif;margin:0;background:#f5f7f9;color:#1b1f24;}}
-main{{max-width:1180px;margin:0 auto;padding:24px;}}
+main{{max-width:720px;margin:0 auto;padding:24px;}}
 h1{{font-size:24px;margin:0 0 16px;}}
-.layout{{display:grid;grid-template-columns:minmax(420px,1fr) minmax(420px,1fr);gap:18px;align-items:start;}}
 .panel{{background:white;border:1px solid #d7dde3;border-radius:8px;padding:16px;}}
-.grid{{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;}}
+.grid{{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;}}
 label{{font-size:14px;color:#30363d;}}
-input,textarea{{width:100%;box-sizing:border-box;border:1px solid #c7d0d9;border-radius:6px;padding:8px;font:14px "Malgun Gothic",system-ui,sans-serif;}}
-textarea{{min-height:92px;resize:vertical;line-height:1.5;}}
-.section{{margin-top:18px;padding-top:14px;border-top:1px solid #e5e9ee;}}
-.checks{{display:grid;gap:8px;margin-top:10px;}}
-.checks label{{display:flex;gap:8px;align-items:center;}}
-.checks input{{width:auto;}}
-.preview{{white-space:pre-wrap;min-height:520px;background:#fff;border:1px solid #c7d0d9;border-radius:8px;padding:16px;line-height:1.55;font-size:15px;}}
+input{{width:100%;box-sizing:border-box;border:1px solid #c7d0d9;border-radius:6px;padding:8px;font:14px "Malgun Gothic",system-ui,sans-serif;}}
+.password-row{{display:flex;gap:8px;align-items:center;}}
+.password-row input{{flex:1;}}
+.secondary{{border:1px solid #aeb8c2;background:white;color:#1b1f24;border-radius:6px;padding:8px 10px;font-weight:600;cursor:pointer;white-space:nowrap;}}
 .actions{{display:flex;justify-content:flex-end;margin-top:16px;gap:8px;}}
 button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;}}
 .hint{{font-size:13px;color:#59636e;margin:8px 0 0;}}
 code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
+@media(max-width:700px){{.grid{{grid-template-columns:1fr;}}}}
+</style>
+</head>
+<body>
+<main>
+<h1>1단계. 그룹웨어 계정 확인</h1>
+<form method="post" action="/verify">
+<section class="panel">
+<div class="grid">
+<label>메일 주소</label><input name="email" type="email" required>
+<label>메일 비밀번호</label><div class="password-row"><input id="password" name="password" type="password" required><button class="secondary" type="button" id="togglePassword">보기</button></div>
+<label>그룹웨어 내 본인 이름</label><input name="from_name" required>
+</div>
+<div class="actions"><button type="submit">계정 확인</button></div>
+<p class="hint">먼저 IMAP/SMTP 로그인을 검증한다. 성공하면 서명 설정 화면으로 넘어간다.</p>
+<p class="hint">경로, DB, SMTP/IMAP host/port는 기본값을 사용한다. 비밀번호는 이 PC의 로컬 setup 프로세스로만 전송된다.</p>
+</section>
+</form>
+</main>
+<script>
+const password = document.querySelector("#password");
+const togglePassword = document.querySelector("#togglePassword");
+togglePassword.addEventListener("click", () => {{
+  const visible = password.type === "text";
+  password.type = visible ? "password" : "text";
+  togglePassword.textContent = visible ? "보기" : "숨기기";
+}});
+</script>
+</body>
+</html>"""
+
+
+def _web_signature_form_html(*, token: str, values: SetupValues, args: argparse.Namespace) -> str:
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ubisam-mail-mcp signature setup</title>
+<style>
+body{{font-family:"Malgun Gothic",system-ui,sans-serif;margin:0;background:#f5f7f9;color:#1b1f24;}}
+main{{max-width:1180px;margin:0 auto;padding:24px;}}
+h1{{font-size:24px;margin:0 0 16px;}}
+.layout{{display:grid;grid-template-columns:minmax(420px,1fr) minmax(420px,1fr);gap:18px;align-items:start;}}
+.panel{{background:white;border:1px solid #d7dde3;border-radius:8px;padding:16px;}}
+.grid{{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;}}
+label{{font-size:14px;color:#30363d;}}
+input,textarea{{width:100%;box-sizing:border-box;border:1px solid #c7d0d9;border-radius:6px;padding:8px;font:14px "Malgun Gothic",system-ui,sans-serif;}}
+textarea{{min-height:92px;resize:vertical;line-height:1.5;}}
+.inline-check{{display:flex;align-items:center;gap:8px;}}
+.inline-check input[type="checkbox"]{{width:auto;}}
+.inline-check input[type="text"]{{flex:1;}}
+.section{{margin-top:18px;padding-top:14px;border-top:1px solid #e5e9ee;}}
+.preview{{white-space:pre-wrap;min-height:520px;background:#fff;border:1px solid #c7d0d9;border-radius:8px;padding:16px;line-height:1.55;font-size:15px;}}
+.actions{{display:flex;justify-content:flex-end;margin-top:16px;gap:8px;}}
+button{{border:1px solid #0069c2;background:#0078d4;color:white;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;}}
+.hint{{font-size:13px;color:#59636e;margin:8px 0 0;}}
 @media(max-width:900px){{.layout{{grid-template-columns:1fr;}}.grid{{grid-template-columns:1fr;}}}}
 </style>
 </head>
 <body>
 <main>
-<h1>ubisam-mail-mcp 처음 설정</h1>
+<h1>2단계. 기본 서식 설정</h1>
+<p class="hint">계정 확인 완료: {_esc(values.email)}</p>
 <form method="post" action="/setup">
+<input type="hidden" name="setup_token" value="{_esc(token)}">
+<input type="hidden" name="email" value="{_esc(values.email)}">
+<input type="hidden" name="preview_dir" value="{_esc(args.preview_dir)}">
 <div class="layout">
 <section class="panel">
 <div class="grid">
-<label>메일 주소</label><input name="email" type="email" required>
-<label>메일 비밀번호</label><input name="password" type="password" required>
-<label>그룹웨어 내 본인 이름</label><input name="from_name" required>
-<label>.env 저장 경로</label><input name="env_file" value="{_esc(args.env_file)}">
-<label>DB 경로</label><input name="db_path" value="{_esc(args.db_path)}">
-<label>다운로드 폴더</label><input name="download_dir" value="{_esc(args.download_dir)}">
-</div>
-<div class="section grid">
-<label>SMTP host</label><input name="smtp_host" value="{_esc(args.smtp_host)}">
-<label>SMTP port</label><input name="smtp_port" value="{_esc(str(args.smtp_port))}">
-<label>IMAP host</label><input name="imap_host" value="{_esc(args.imap_host)}">
-<label>IMAP port</label><input name="imap_port" value="{_esc(str(args.imap_port))}">
-</div>
-<div class="checks">
-<label><input name="smtp_use_starttls" type="checkbox" checked> SMTP STARTTLS 사용</label>
-<label><input name="smtp_use_tls" type="checkbox"> SMTP implicit TLS 사용</label>
-<label><input name="imap_use_tls" type="checkbox" checked> IMAP TLS 사용</label>
-<label><input name="force" type="checkbox"> 기존 .env 덮어쓰기</label>
-<label><input name="skip_connection_check" type="checkbox"> IMAP/SMTP 검증 생략</label>
-<label><input name="skip_signature_setup" type="checkbox"> 기본 서식 설정 생략</label>
-</div>
-<div class="section grid">
-<label>서명 이름</label><input data-preview name="display_name">
+<label>서명 이름</label><input data-preview name="display_name" value="{_esc(values.from_name)}">
 <label>영문 이름</label><input data-preview name="english_name">
-<label>한자 이름</label><input data-preview name="hanja_name">
+<label>한자 이름</label><div class="inline-check"><input id="useHanja" type="checkbox"><input id="hanjaName" data-preview name="hanja_name" disabled></div>
 <label>부서</label><input data-preview name="department">
 <label>영문 부서</label><input data-preview name="division_english">
 <label>팀</label><input data-preview name="team">
@@ -495,17 +566,15 @@ code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
 <label>영문 직함</label><input data-preview name="job_title_english">
 <label>대표전화</label><input data-preview name="office_phone">
 <label>휴대폰</label><input data-preview name="mobile">
-<label>로고 이미지 경로</label><input data-preview name="logo_image_path">
 </div>
 <div class="section">
 <label>기본 인삿말</label>
 <textarea data-preview name="greeting_text">{_esc(DEFAULT_GREETING_TEXT)}</textarea>
 <label>기본 맺음말</label>
 <textarea data-preview name="closing_text">{_esc(DEFAULT_CLOSING_TEXT)}</textarea>
-<input type="hidden" name="preview_dir" value="{_esc(args.preview_dir)}">
 </div>
-<div class="actions"><button type="submit">저장하고 검증</button></div>
-<p class="hint">이 페이지는 로컬 PC의 <code>127.0.0.1</code> 서버입니다. 비밀번호는 로컬 setup 프로세스로만 전송됩니다.</p>
+<div class="actions"><button type="submit">저장하고 완료</button></div>
+<p class="hint">빈 영문 이름, 한자 이름, 전화번호는 저장되는 footer 서명에서 자동으로 빠진다.</p>
 </section>
 <section class="panel">
 <h2>실시간 미리보기</h2>
@@ -517,13 +586,14 @@ code{{background:#eef2f5;border-radius:4px;padding:2px 4px;}}
 <script>
 const form = document.querySelector("form");
 const preview = document.querySelector("#preview");
+const useHanja = document.querySelector("#useHanja");
+const hanjaName = document.querySelector("#hanjaName");
 function value(name) {{ return (form.elements[name]?.value || "").trim(); }}
 function parts(items, sep=" / ") {{ return items.filter(Boolean).join(sep); }}
 function renderTemplate(text) {{
   return text.replace(/{{{{\\s*([a-zA-Z0-9_]+)\\s*}}}}/g, (_m, key) => value(key));
 }}
 function refresh() {{
-  if (!value("display_name")) form.elements.display_name.value = value("from_name");
   const nameHead = parts([parts([value("display_name"), value("position")], " "), value("english_name"), value("hanja_name")]);
   const dept = parts([value("department"), value("division_english"), value("job_title_english")]);
   const contact = parts([
@@ -535,12 +605,16 @@ function refresh() {{
     renderTemplate(value("greeting_text")),
     "본문 테스트입니다.",
     renderTemplate(value("closing_text")),
-    [nameHead, dept, contact].filter(Boolean).join("\\n"),
-    value("logo_image_path") ? "[로고] " + value("logo_image_path").split(/[\\\\/]/).pop() : ""
+    [nameHead, dept, contact].filter(Boolean).join("\\n")
   ].filter(Boolean);
   preview.textContent = lines.join("\\n\\n");
 }}
 form.addEventListener("input", refresh);
+useHanja.addEventListener("change", () => {{
+  hanjaName.disabled = !useHanja.checked;
+  if (!useHanja.checked) hanjaName.value = "";
+  refresh();
+}});
 refresh();
 </script>
 </body>

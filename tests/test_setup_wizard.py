@@ -3,7 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from ubisam_mail_mcp.repository import DraftRepository
-from ubisam_mail_mcp.setup_wizard import _build_signature_templates, _parse_args, _run_setup_from_web_payload, main
+from ubisam_mail_mcp.setup_wizard import (
+    SetupValues,
+    _build_signature_templates,
+    _parse_args,
+    _run_setup_from_web_payload,
+    _web_form_html,
+    _web_signature_form_html,
+    main,
+)
 
 
 def test_setup_wizard_writes_env_and_skips_signature_setup(tmp_path, monkeypatch):
@@ -186,6 +194,35 @@ def test_web_setup_payload_creates_env_and_templates(tmp_path, monkeypatch):
     assert repository.get_default_greeting_template() is not None
     assert repository.get_default_closing_template() is not None
     assert repository.get_default_signature() is not None
+
+
+def test_web_setup_account_page_hides_advanced_fields():
+    html = _web_form_html(_parse_args(["--web-setup"]))
+
+    assert 'action="/verify"' in html
+    assert "togglePassword" in html
+    assert "SMTP host" not in html
+    assert "DB 경로" not in html
+    assert "로고 이미지 경로" not in html
+    assert "서명 이름" not in html
+
+
+def test_web_signature_page_uses_hanja_toggle():
+    html = _web_signature_form_html(
+        token="token",
+        values=SetupValues(
+            env_file=Path(".env"),
+            email="user@ubisam.com",
+            password="secret",
+            from_name="홍길동",
+        ),
+        args=_parse_args(["--web-setup"]),
+    )
+
+    assert 'action="/setup"' in html
+    assert 'id="useHanja"' in html
+    assert 'id="hanjaName"' in html
+    assert "비밀번호" not in html
 
 
 def test_setup_wizard_refuses_existing_env_without_force(tmp_path):
