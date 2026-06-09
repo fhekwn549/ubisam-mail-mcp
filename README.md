@@ -45,7 +45,8 @@
 - 조회는 IMAP, 발송은 SMTP로 처리한다.
 - SMTP는 `TLS(465)` 또는 `STARTTLS(587)` 중 하나가 반드시 켜져 있어야 한다. 둘 다 꺼져 있으면 발송을 거부한다.
 - 예약 발송은 SQLite에 저장된다. 서버가 실행 중이어야 예약 시간 도래 시 자동 발송하며, 꺼져 있었으면 `dispatch_due_messages`를 다시 호출해 밀린 예약을 보낸다.
-- `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`만 사용한다(IMAP 발송함 자동 업로드는 미구현).
+- `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`로 초안을 Drafts에 올린다.
+- 발송(`send_draft_now`·`dispatch_due_messages`)에 성공하면 보낸 메일을 자동으로 IMAP `\\Sent` 메일함에 기록한다(best-effort: 기록 실패해도 발송은 성공하고 경고만 남긴다).
 - `copy_messages`는 IMAP `COPY`로 원본을 둔 채 사본만 만든다(발송 기록 보존). 원본을 옮기려면 `move_messages`를 쓴다.
 
 **서명·템플릿 구조**

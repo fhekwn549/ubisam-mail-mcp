@@ -32,6 +32,7 @@ def _service() -> MailService:
         repository=DraftRepository(config.sqlite_path),
         sender=SmtpMailSender(config),
         config=config,
+        sent_recorder=_imap(),
     )
 
 
@@ -436,7 +437,12 @@ def schedule_draft(draft_id: str, scheduled_for: str) -> dict[str, Any]:
 
 @mcp.tool()
 def send_draft_now(draft_id: str) -> dict[str, Any]:
-    """Send a draft immediately after explicit confirmation by the user."""
+    """Send a draft immediately after explicit confirmation by the user.
+
+    Before sending, show the user the recipients and the attachment list
+    (filename and path from the draft) so they can confirm no unintended or
+    sensitive file is mailed out.
+    """
     draft = _service().send_draft_now(draft_id)
     return {"draft": _draft_to_dict(draft)}
 

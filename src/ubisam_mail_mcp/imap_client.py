@@ -180,6 +180,35 @@ class ImapMailClient:
                 "subject": draft.subject,
             }
 
+    def upload_to_sent(
+        self,
+        *,
+        draft: MessageDraft,
+        mailbox: str | None = None,
+    ) -> dict[str, Any]:
+        """APPEND an already-sent message into the IMAP Sent mailbox with the
+        \\Seen flag so the groupware webmail shows it in 보낸메일함."""
+        self._require_ready()
+        with self._connect() as client:
+            resolved_mailbox = mailbox or self._find_special_use_mailbox(client, "\\Sent")
+            if not resolved_mailbox:
+                raise ValueError("IMAP sent mailbox could not be found")
+            message = build_email_message(draft, config=self._config)
+            timestamp = draft.sent_at or draft.updated_at or datetime.now(timezone.utc)
+            internaldate = imaplib.Time2Internaldate(timestamp)
+            status, data = client.append(
+                resolved_mailbox,
+                "(\\Seen)",
+                internaldate,
+                message.as_bytes(policy=policy.SMTP),
+            )
+            _expect_ok(status, data, f"append sent message to mailbox {resolved_mailbox}")
+            return {
+                "mailbox": resolved_mailbox,
+                "append_uid": _parse_append_uid(data),
+                "subject": draft.subject,
+            }
+
     def create_mailbox(self, *, mailbox: str) -> dict[str, Any]:
         self._require_ready()
         with self._connect() as client:

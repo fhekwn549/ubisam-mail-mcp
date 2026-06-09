@@ -48,11 +48,17 @@ class MailSender(Protocol):
         ...
 
 
+class SentMailboxRecorder(Protocol):
+    def upload_to_sent(self, *, draft: MessageDraft, mailbox: str | None = None) -> dict[str, Any]:
+        ...
+
+
 @dataclass(slots=True)
 class MailService:
     repository: DraftRepository
     sender: MailSender
     config: AppConfig
+    sent_recorder: SentMailboxRecorder | None = None
 
     def create_greeting_template(
         self,
@@ -670,7 +676,21 @@ class MailService:
         draft.sent_at = datetime.now(timezone.utc)
         draft.scheduled_for = None
         draft.last_error = None
-        return self.repository.upsert(draft)
+        saved = self.repository.upsert(draft)
+        self._record_sent_copy(sending_draft, saved)
+        return saved
+
+    def _record_sent_copy(self, sending_draft: MessageDraft, saved_draft: MessageDraft) -> None:
+        # Best-effort: the mail is already sent. If copying it into the IMAP
+        # Sent mailbox fails, keep the send successful and record a warning.
+        if self.sent_recorder is None:
+            return
+        sending_draft.sent_at = saved_draft.sent_at
+        try:
+            self.sent_recorder.upload_to_sent(draft=sending_draft)
+        except Exception as exc:
+            saved_draft.last_error = f"sent-copy-failed: {exc}"
+            self.repository.upsert(saved_draft)
 
     def _resolve_signature(
         self,

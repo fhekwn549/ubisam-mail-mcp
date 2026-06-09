@@ -365,3 +365,16 @@ def test_setup_wizard_refuses_existing_env_without_force(tmp_path):
 
     assert exit_code == 1
     assert env_file.read_text(encoding="utf-8") == "existing=true\n"
+
+
+def test_web_host_exposure_warning():
+    from ubisam_mail_mcp.setup_wizard import _web_host_exposure_warning
+
+    assert _web_host_exposure_warning("127.0.0.1") is None
+    assert _web_host_exposure_warning("localhost") is None
+    assert _web_host_exposure_warning("::1") is None
+
+    for exposed in ("0.0.0.0", "192.168.0.10"):
+        warning = _web_host_exposure_warning(exposed)
+        assert warning is not None
+        assert "노출" in warning

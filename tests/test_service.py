@@ -750,3 +750,53 @@ def test_attachment_gate_allows_normal_files(tmp_path):
 
     _ensure_safe_attachment_source(doc)
     _ensure_safe_attachment_source(image)
+
+
+class FakeSentRecorder:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.calls: list[object] = []
+        self.fail = fail
+
+    def upload_to_sent(self, *, draft, mailbox=None):
+        self.calls.append(draft)
+        if self.fail:
+            raise RuntimeError("imap unavailable")
+        return {"mailbox": "Sent", "append_uid": "5", "subject": draft.subject}
+
+
+def test_send_records_copy_to_sent_mailbox(tmp_path):
+    service, sender = make_service(tmp_path)
+    recorder = FakeSentRecorder()
+    service.sent_recorder = recorder
+    draft = service.create_draft(
+        subject="hi",
+        to=["a@example.com"],
+        text_body="body",
+        apply_default_signature=False,
+    )
+
+    sent = service.send_draft_now(draft.id)
+
+    assert sent.status == "sent"
+    assert sent.id in sender.sent_ids
+    assert len(recorder.calls) == 1
+    assert sent.last_error is None
+
+
+def test_send_succeeds_when_sent_copy_fails(tmp_path):
+    service, sender = make_service(tmp_path)
+    service.sent_recorder = FakeSentRecorder(fail=True)
+    draft = service.create_draft(
+        subject="hi",
+        to=["a@example.com"],
+        text_body="body",
+        apply_default_signature=False,
+    )
+
+    sent = service.send_draft_now(draft.id)
+
+    assert sent.status == "sent"
+    assert sent.id in sender.sent_ids
+    reloaded = service.require_draft(draft.id)
+    assert reloaded.last_error is not None
+    assert "sent-copy-failed" in reloaded.last_error

@@ -314,6 +314,18 @@ def _probe_smtp(config: AppConfig) -> None:
         _close_smtp_session(smtp)
 
 
+def _web_host_exposure_warning(web_host: str) -> str | None:
+    """Warn when the setup web server (which collects a mail password) is bound
+    to a non-loopback address and thus reachable from other hosts on the LAN."""
+    if web_host in {"127.0.0.1", "localhost", "::1"}:
+        return None
+    return (
+        f"경고: web-host '{web_host}'는 로컬 전용이 아닙니다. setup 페이지에서 "
+        "메일 비밀번호를 입력하므로 같은 네트워크의 다른 기기에 노출될 수 있습니다. "
+        "가능하면 기본값(127.0.0.1)을 사용하세요."
+    )
+
+
 def _run_web_setup(args: argparse.Namespace) -> int:
     server = http.server.ThreadingHTTPServer(
         (args.web_host, args.web_port),
@@ -325,6 +337,10 @@ def _run_web_setup(args: argparse.Namespace) -> int:
     print("브라우저가 자동으로 열리지 않으면 위 주소를 직접 여세요.")
     if args.web_host in {"127.0.0.1", "localhost"}:
         webbrowser.open(url)
+    else:
+        warning = _web_host_exposure_warning(args.web_host)
+        if warning:
+            print(warning, file=sys.stderr)
     try:
         server.serve_forever()
     finally:
