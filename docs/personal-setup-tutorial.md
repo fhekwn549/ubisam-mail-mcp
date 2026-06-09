@@ -106,22 +106,10 @@ python -m pip install -e .
 
 `pip install -e .`가 끝나면 `ubisam-mail-mcp`라는 실행 명령이 생긴다. 이게 AI와 메일을 잇는 서버다.
 
-> 필요한 Python은 3.10 이상이다(3.11, 3.12 등 모두 가능). `py -3`는 설치된 최신 3.x를 잡는다.
-> `python --version`으로 3.10 이상인지 확인하고, 최신이 3.10 미만이면 `py -3.12`처럼 버전을 명시해서 만든다.
-> 가상환경 활성화는 `source .venv/bin/activate` 대신 `.venv\Scripts\Activate.ps1`.
-> `.venv`는 Python 버전을 올려주지 않는다. 기존 `.venv`를 3.9 이하로 만들었다면 삭제 후 새 Python으로 다시 만든다.
+> 필요한 Python은 3.10 이상이다(3.11, 3.12 등 모두 가능). `py -3`는 설치된 최신 3.x를 잡고, 3.10 미만이면 `py -3.12`처럼 버전을 명시한다.
+> `.venv`는 Python 버전을 올려주지 않는다. 기존 `.venv`를 3.9 이하로 만들었다면 삭제 후 새 Python으로 다시 만든다(아래).
 
-Windows PowerShell 예시:
-
-```powershell
-py --list
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python --version
-python -m pip install -e .
-```
-
-기존 `.venv`를 다시 만들 때:
+기존 `.venv`를 다시 만들 때(Windows PowerShell):
 
 ```powershell
 Remove-Item -Recurse -Force .venv
@@ -179,7 +167,7 @@ Claude Desktop과 Codex Desktop은 같은 `command`와 `UBISAM_ENV_FILE` 값을 
 }
 ```
 
-Windows PowerShell에 설치한 MCP를 Claude Desktop에 이미 붙였다면, 그 `command`와 `UBISAM_ENV_FILE` 값을 그대로 Codex Desktop에도 쓴다.
+> Windows에서 `command`(`ubisam-mail-mcp`)가 PATH에 없으면 `.venv\Scripts\ubisam-mail-mcp.exe` 절대경로로 적는다. 같은 `command`·`UBISAM_ENV_FILE` 값을 Codex에도 그대로(형식만 TOML) 쓴다.
 
 저장 후 **앱을 완전히 종료했다 다시 켠다**.
 
@@ -203,14 +191,7 @@ command = "ubisam-mail-mcp"
 env = { UBISAM_ENV_FILE = "/절대경로/ubisam-mail-mcp/.env" }
 ```
 
-Windows에서 Claude Desktop 설정이 이미 이렇게 되어 있다면:
-
-```json
-"command": "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.venv\\Scripts\\ubisam-mail-mcp.exe",
-"UBISAM_ENV_FILE": "C:\\Users\\YOUR_NAME\\ubisam-mail-mcp\\.env"
-```
-
-Codex는 같은 값을 TOML로 적는다:
+Windows에서 진입점이 PATH에 없으면 `command`를 `.venv` 절대경로로 적는다:
 
 ```toml
 [mcp_servers.ubisam_mail]
