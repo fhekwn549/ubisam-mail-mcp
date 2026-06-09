@@ -80,6 +80,15 @@ def test_search_helpers_build_expected_values():
         "BEFORE",
         "03-Jun-2026",
     ]
+    assert _build_search_terms(
+        subject_contains='a" TEXT "b',
+        from_contains="",
+        to_contains="",
+        body_contains="",
+        is_unread=None,
+        date_from=None,
+        date_to=None,
+    ) == ["ALL", "SUBJECT", '"a\\" TEXT \\"b"']
 
 
 def test_extract_text_and_html_body():
@@ -315,6 +324,39 @@ def test_download_attachment_uses_default_dir_when_target_path_missing(monkeypat
     saved_path = Path(result["saved_to"])
     assert saved_path == tmp_path / "downloads" / "uid_42" / "hello.txt"
     assert saved_path.read_text(encoding="utf-8") == "hello"
+
+
+def test_download_attachment_sanitizes_traversal_filename(monkeypatch, tmp_path):
+    message = EmailMessage()
+    message["Subject"] = "demo"
+    message.set_content("plain body")
+    message.add_attachment(
+        "evil".encode("utf-8"),
+        maintype="text",
+        subtype="plain",
+        filename="../../../../tmp/evil.txt",
+    )
+    client = make_client(tmp_path)
+    fake_client = FakeImapFetchClient(message.as_bytes())
+
+    @contextmanager
+    def fake_connect():
+        yield fake_client
+
+    @contextmanager
+    def fake_select(_client, _mailbox: str):
+        yield
+
+    monkeypatch.setattr(client, "_connect", fake_connect)
+    monkeypatch.setattr(client, "_select_mailbox", fake_select)
+
+    result = client.download_attachment(mailbox="INBOX", uid="7", attachment_index=0)
+
+    saved_path = Path(result["saved_to"])
+    download_root = (tmp_path / "downloads").resolve()
+    assert download_root in saved_path.parents
+    assert saved_path == download_root / "uid_7" / "evil.txt"
+    assert saved_path.read_text(encoding="utf-8") == "evil"
 
 
 def test_get_unread_status_returns_count_and_latest_messages(monkeypatch, tmp_path):

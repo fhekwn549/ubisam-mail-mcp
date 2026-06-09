@@ -281,8 +281,8 @@ def test_web_success_page_explains_where_to_paste_client_settings():
     )
 
     assert "터미널에 한 줄로 입력" in html
-    assert "같은 <code>command</code>와 <code>UBISAM_ENV_FILE</code> 값을 씁니다" in html
-    assert "Claude Desktop은 JSON, Codex Desktop은 TOML 형식" in html
+    assert "command와 <code>UBISAM_ENV_FILE</code> 값은 Claude Desktop과 같고" in html
+    assert "형식만 JSON 대신 TOML입니다" in html
     assert "Settings → Configuration → Open config.toml" in html
     assert "nano ~/.codex/config.toml" in html
     assert "아래 내용을 붙여넣고 저장" in html

@@ -1,69 +1,65 @@
 # ubisam-mail-mcp
 
+유비샘 그룹웨어 메일 계정의 IMAP/SMTP를 사용해 agent가 메일 조회, 초안 작성, 임시보관, 예약 발송, 사용자 확인 후 발송을 수행하는 MCP 서버다. 한 번 설정하면 이후에는 AI에게 평소 말하듯 부탁하면 된다.
+
 처음 설치하는 동료는 [처음 사용 가이드](docs/personal-setup-tutorial.md)부터 따라가면 된다.
 
 ## 사전 준비 (필수)
 
-1. **Python 3.10 이상 + pip** — 확인: `python3 --version` 또는 Windows PowerShell에서 `py --list`. 3.10 미만이면 동작하지 않으니 먼저 3.10+를 설치한다. Python이 아예 없는 PC는 3.12 또는 3.13 설치를 권장한다. (가상환경 venv는 파이썬 버전을 바꿔주지 않고, 선택한 Python으로 격리 환경을 만든다.)
-2. **유비샘 그룹웨어에서 외부 메일 연동 활성화**:
-   > **유비샘 그룹웨어 → 메일 → 환경설정 → SMTP-POP3-IMAP → SMTP/IMAP** 페이지에서 사용을 활성화한다.
+1. **Python 3.10 이상 + pip** — 확인: `python3 --version` 또는 Windows PowerShell에서 `py --list`. 3.10 미만이면 동작하지 않으니 먼저 3.10+를 설치한다. Python이 없는 PC는 3.12 또는 3.13 설치를 권장한다.
+2. **유비샘 그룹웨어에서 외부 메일 연동 활성화** — **메일 → 환경설정 → SMTP-POP3-IMAP → SMTP/IMAP** 페이지에서 사용을 활성화한다. 활성화하지 않으면 아래 설정이 맞아도 IMAP/SMTP 로그인이 거부된다.
 
-   활성화하지 않으면 아래 설정이 맞아도 IMAP/SMTP 로그인이 거부된다.
+## 기능 (MCP 도구)
 
-## 소개
+**메일 조회·관리 (IMAP)**
+- `list_mailboxes` / `create_mailbox`: 메일함 목록 조회 / 폴더 생성
+- `list_messages`: 최근 메일 요약 조회
+- `get_unread_status`: 안읽음 여부·개수·최신 unread 요약
+- `search_messages`: 제목/발신자/수신자/본문/날짜/안읽음/첨부 기준 검색
+- `get_message`: UID로 본문 미리보기 + 첨부 메타데이터
+- `set_message_read_status`: 읽음/안읽음 변경
+- `move_messages` / `copy_messages`: 다른 메일함으로 이동(원본 삭제) / 복사(원본 유지)
+- `delete_messages`: 삭제, 가능하면 휴지통으로 이동
+- `download_message_attachment`: 수신 첨부 저장
 
-유비샘 그룹웨어 메일 계정의 IMAP/SMTP를 사용해 agent가 메일 조회, 초안 작성, 임시보관, 예약 발송, 사용자 확인 후 발송을 수행하는 MCP 서버다.
-
-## 범위
-
-- `list_mailboxes`: IMAP 메일함 목록 조회
-- `create_mailbox`: IMAP 메일함/폴더 생성
-- `list_messages`: 메일함 최근 메일 요약 조회
-- `get_unread_status`: 읽지 않은 메일 존재 여부, 개수, 최신 unread 요약 조회
-- `search_messages`: 제목/발신자/수신자/본문/날짜/안읽음/첨부 여부 기준 검색
-- `get_message`: 특정 UID 메일 본문 미리보기 및 첨부 메타데이터 조회
-- `set_message_read_status`: 읽음/안읽음 상태 변경
-- `move_messages`: 메일을 다른 메일함으로 이동 (원본은 원래 메일함에서 사라짐)
-- `copy_messages`: 메일을 원본 유지한 채 다른 메일함으로 복사 (보낸메일함 기록 보존용)
-- `delete_messages`: 메일 삭제, 가능하면 휴지통으로 이동
-- `download_message_attachment`: 수신 메일 첨부 저장
-- `create_greeting_template`, `update_greeting_template`, `get_greeting_template`, `list_greeting_templates`, `delete_greeting_template`: 인삿말 템플릿 관리
-- `create_closing_template`, `update_closing_template`, `get_closing_template`, `list_closing_templates`, `delete_closing_template`: 맺음말 템플릿 관리
-- `create_signature_profile`, `update_signature_profile`, `get_signature_profile`, `list_signature_profiles`, `delete_signature_profile`: 개인/부서/연락처/로고 프로필 관리
-- `create_signature`, `update_signature`, `get_signature`, `list_signatures`, `delete_signature`: footer 서명 템플릿 관리
-- `preview_signature`: 인삿말 + 본문 + 클로징 서명 조합 미리보기
-- `preview_closing_signature`: 클로징 서명 block만 미리보기, 로컬 HTML export 가능
-- `create_draft`: 메일 초안 생성, 로컬 첨부 포함 가능
-- `update_draft`: 초안 수정, 첨부 교체 가능
-- `create_reply_draft`, `create_reply_all_draft`: 원본 메일 인용/스레드 헤더 포함 답장 초안 생성
-- `get_draft`, `list_drafts`: 임시보관/발송 상태 조회
-- `upload_draft_to_imap`: 로컬 draft를 IMAP `\\Drafts` 메일함에 업로드
+**초안·발송**
+- `create_draft` / `update_draft`: 초안 생성 / 수정 (로컬 첨부 포함·교체)
+- `create_reply_draft` / `create_reply_all_draft`: 원본 인용·스레드 헤더 포함 답장 초안
+- `get_draft` / `list_drafts`: 임시보관/발송 상태 조회
+- `upload_draft_to_imap`: 로컬 draft를 IMAP `\\Drafts`에 업로드
 - `schedule_draft`: 예약 발송 등록
 - `send_draft_now`: 사용자 확인 뒤 즉시 발송
 - `dispatch_due_messages`: 예약 시간이 지난 메일 발송
 
+**서명·템플릿**
+- 인삿말: `create/update/get/list/delete_greeting_template`
+- 맺음말: `create/update/get/list/delete_closing_template`
+- 프로필(이름·부서·연락처·로고): `create/update/get/list/delete_signature_profile`
+- footer 서명: `create/update/get/list/delete_signature`
+- `preview_signature`: 인삿말+본문+클로징 조합 미리보기
+- `preview_closing_signature`: 클로징 block만 미리보기, 로컬 HTML export 가능
+
 ## 운영 제약
 
-- 메일 조회는 IMAP, 실제 발송은 SMTP로 처리한다.
-- 예약 발송은 SQLite에 저장된다.
-- 보안상 SMTP 발송은 `TLS(465)` 또는 `STARTTLS(587)` 중 하나가 반드시 켜져 있어야 한다. 둘 다 꺼져 있으면 MCP가 발송을 거부한다.
-- 그룹웨어 웹의 **메일 → 환경설정 → 서명** 값을 직접 읽어오지는 않는다. 필요하면 기존 서명을 1회 복사해 MCP 로컬 템플릿으로 저장한다.
-- 인삿말과 클로징 서명은 분리해서 관리한다.
-- 맺음말 문구와 footer 서명도 분리해서 관리한다.
-- 인삿말 템플릿과 클로징 서명 템플릿은 `{{display_name}}`, `{{department}}`, `{{position}}` 같은 프로필 placeholder를 사용할 수 있다.
-- 맺음말 템플릿은 본문 뒤에 붙는 문구 블록이고, footer 서명 템플릿은 그 아래 연락처/로고 영역을 생성한다.
-- 서명 템플릿의 `mode`가 `wrap_body`면 기존처럼 `{{body}}` placeholder를 기준으로 본문 전체를 감싼다.
-- 서명 템플릿의 `mode`가 `closing_only`면 본문 뒤 footer 블록으로 붙는다.
-- 회사 연락처처럼 글씨색/크기/폰트가 다른 서명은 `html_template`에 inline style로 저장한다.
-- `{{company_logo_img}}` placeholder를 쓰면 프로필의 `logo_image_path`를 HTML 메일에 inline 이미지로 삽입한다.
-- 첨부파일은 MCP 서버가 접근 가능한 로컬 파일 경로를 기준으로 초안에 저장한다.
-- 첨부를 수정할 때는 `update_draft(attachment_paths=[...])`로 전체 첨부 목록을 교체한다.
-- 수신 첨부 다운로드는 `target_path`를 생략하면 `UBISAM_ATTACHMENT_DOWNLOAD_DIR/uid_<uid>/파일명`에 저장한다.
-- `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`만 사용한다.
-- `copy_messages`는 IMAP `COPY`만 사용해 원본을 그대로 둔 채 사본을 만든다(보낸메일함 등 발송 기록 보존). 원본을 옮겨야 하면 `move_messages`를 쓴다.
-- 서버가 실행 중이어야 예약 시간이 도래했을 때 자동 발송할 수 있다.
-- 서버가 꺼져 있으면 `dispatch_due_messages`를 다시 호출해야 밀린 예약 메일을 보낸다.
-- IMAP 발송함 업로드는 아직 구현하지 않는다.
+**전송·발송**
+- 조회는 IMAP, 발송은 SMTP로 처리한다.
+- SMTP는 `TLS(465)` 또는 `STARTTLS(587)` 중 하나가 반드시 켜져 있어야 한다. 둘 다 꺼져 있으면 발송을 거부한다.
+- 예약 발송은 SQLite에 저장된다. 서버가 실행 중이어야 예약 시간 도래 시 자동 발송하며, 꺼져 있었으면 `dispatch_due_messages`를 다시 호출해 밀린 예약을 보낸다.
+- `upload_draft_to_imap`은 SMTP 없이 IMAP `APPEND`만 사용한다(IMAP 발송함 자동 업로드는 미구현).
+- `copy_messages`는 IMAP `COPY`로 원본을 둔 채 사본만 만든다(발송 기록 보존). 원본을 옮기려면 `move_messages`를 쓴다.
+
+**서명·템플릿 구조**
+- 그룹웨어 웹 서명(**메일 → 환경설정 → 서명**)을 직접 읽지 않는다. 필요하면 기존 서명을 1회 복사해 로컬 템플릿으로 저장한다.
+- 인삿말/클로징, 맺음말/footer 서명은 각각 분리해서 관리한다. 맺음말은 본문 뒤 문구 블록, footer 서명은 그 아래 연락처/로고 영역이다.
+- 템플릿은 `{{display_name}}`·`{{department}}`·`{{position}}` 등 프로필 placeholder를 쓸 수 있다.
+- 서명 `mode`: `wrap_body`는 `{{body}}` 기준으로 본문 전체를 감싸고, `closing_only`는 본문 뒤 footer 블록으로 붙는다.
+- 색/크기/폰트가 다른 서명은 `html_template`에 inline style로 저장한다.
+- `{{company_logo_img}}`는 프로필의 `logo_image_path`를 HTML 메일에 inline 이미지로 삽입한다.
+
+**첨부**
+- 초안 첨부는 MCP 서버가 접근 가능한 로컬 파일 경로 기준이며, `update_draft(attachment_paths=[...])`로 전체 목록을 교체한다.
+- 보안상 `.env`·`~/.ssh`·`*.pem`/`*.key` 같은 자격증명 파일은 첨부를 거부한다.
+- 수신 첨부 다운로드는 `target_path`를 생략하면 `UBISAM_ATTACHMENT_DOWNLOAD_DIR/uid_<uid>/파일명`에 저장한다(파일명은 경로 분리 후 저장 폴더 안으로 제한).
 
 ## 환경 변수
 
@@ -97,13 +93,10 @@
 - Windows PowerShell/CMD: `UBISAM_ATTACHMENT_DOWNLOAD_DIR="%USERPROFILE%\\Downloads\\ubisam-mail"`
 
 참고:
-- `2026-06-01` 기준 `ubisam.hanbiro.net`에서 `IMAP 993 SSL`, `IMAP 143`, `SMTP 465 SSL`, `SMTP 587 STARTTLS` 응답을 확인했다.
-- `2026-06-01` 기준 한 Ubisam 계정으로 `IMAP 993 SSL`, `SMTP 465 SSL`, `SMTP 587 STARTTLS` 로그인 성공을 확인했다.
-- Hanbiro 계열 서버 인증서는 `*.hanbiro.net`로 응답할 수 있다.
-- 한비로 공식 문서와 사내 댓글 예시는 `IMAP 143`, `SMTP 587`, 연결방식 `자동`을 사용한다. 현재 Ubisam 계정은 `IMAP 993 SSL` 구성이 확인됐고, SMTP는 `587 STARTTLS`를 우선 권장한다.
-- SMTP는 `587 STARTTLS`를 권장한다. `465 SSL`(implicit TLS)로 보내면 한비로 서버 앞단에서 TLS가 종단되고 본체 qmail은 `127.0.0.1` 평문으로 수신해(`Received: ... with SMTP`) 웹메일에 "암호화되지 않음" 자물쇠가 표시된다. `587 STARTTLS`는 qmail이 직접 TLS를 협상해(`Received: ... encrypted SMTP`) 정상적으로 암호화 표시된다.
-- `UBISAM_SMTP_USE_TLS`와 `UBISAM_SMTP_USE_STARTTLS`를 둘 다 `false`로 두면 평문 SMTP가 되어 보안상 허용되지 않는다.
-- SMTP 연결 문제를 추적할 때는 `UBISAM_SMTP_DEBUG="true"`로 켜고 MCP 서버 stderr 로그에서 `smtp-debug ...` 줄을 확인한다.
+- SMTP는 `587 STARTTLS`를 권장한다. `465 SSL`(implicit TLS)로 보내면 한비로 서버 앞단에서 TLS가 종단되고 본체 qmail은 `127.0.0.1` 평문으로 수신해(`Received: ... with SMTP`) 웹메일에 "암호화되지 않음"으로 표시된다. `587 STARTTLS`는 qmail이 직접 TLS를 협상해(`Received: ... encrypted SMTP`) 정상 표시된다.
+- `UBISAM_SMTP_USE_TLS`와 `UBISAM_SMTP_USE_STARTTLS`를 둘 다 `false`로 두면 평문 SMTP가 되어 허용되지 않는다.
+- IMAP은 `993 SSL`을 사용한다. 브랜드 도메인과 인증서 이름(`*.hanbiro.net`)이 다르면 `*_TLS_SERVERNAME`으로 지정한다.
+- SMTP 연결 문제를 추적할 때는 `UBISAM_SMTP_DEBUG="true"`로 켜고 stderr의 `smtp-debug ...` 줄을 확인한다.
 
 ## 설치 및 실행
 
@@ -331,7 +324,7 @@ ubisam-mail-mcp
 ```text
 smtp-debug connect mode=ssl host=ubisam.hanbiro.net port=465
 smtp-debug auth method=plain username=your-email@ubisam.com
-smtp-debug send_message recipients=1 subject=[MCP Test] self-send ...
+smtp-debug send_message recipients=1 subject_len=21
 ```
 
 실패하면 예외도 같이 찍힌다:

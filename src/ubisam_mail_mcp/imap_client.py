@@ -422,7 +422,17 @@ class ImapMailClient:
     ) -> Path:
         if target_path:
             return Path(target_path).expanduser()
-        return self._config.attachment_download_dir.expanduser() / f"uid_{uid}" / attachment_filename
+        # attachment_filename is attacker-controlled (set by the message sender).
+        # Strip any directory components so a crafted name like "../../x" or an
+        # absolute path cannot escape the configured download directory.
+        safe_name = Path(attachment_filename.replace("\\", "/")).name
+        if not safe_name or safe_name in {".", ".."}:
+            safe_name = f"uid_{uid}_attachment"
+        base = self._config.attachment_download_dir.expanduser().resolve()
+        destination = (base / f"uid_{uid}" / safe_name).resolve()
+        if not destination.is_relative_to(base):
+            raise ValueError("resolved attachment path escapes the download directory")
+        return destination
 
     def _find_special_use_mailbox(self, client: imaplib.IMAP4, special_use_attr: str) -> str | None:
         status, data = client.list()
@@ -466,6 +476,13 @@ def _parse_append_uid(data: list[Any] | tuple[Any, ...] | None) -> str | None:
     return match.group("uid")
 
 
+def _imap_quote(value: str) -> str:
+    # IMAP quoted-string: backslash and double-quote must be escaped so a
+    # crafted search term cannot break out and inject extra search keys.
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def _build_search_terms(
     *,
     subject_contains: str,
@@ -478,13 +495,13 @@ def _build_search_terms(
 ) -> list[str]:
     terms: list[str] = ["ALL"]
     if subject_contains.strip():
-        terms.extend(["SUBJECT", f'"{subject_contains.strip()}"'])
+        terms.extend(["SUBJECT", _imap_quote(subject_contains.strip())])
     if from_contains.strip():
-        terms.extend(["FROM", f'"{from_contains.strip()}"'])
+        terms.extend(["FROM", _imap_quote(from_contains.strip())])
     if to_contains.strip():
-        terms.extend(["TO", f'"{to_contains.strip()}"'])
+        terms.extend(["TO", _imap_quote(to_contains.strip())])
     if body_contains.strip():
-        terms.extend(["TEXT", f'"{body_contains.strip()}"'])
+        terms.extend(["TEXT", _imap_quote(body_contains.strip())])
     if is_unread is True:
         terms.append("UNSEEN")
     elif is_unread is False:

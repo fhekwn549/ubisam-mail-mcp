@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from ubisam_mail_mcp.config import AppConfig
 from ubisam_mail_mcp.repository import DraftRepository
-from ubisam_mail_mcp.service import MailService
+from ubisam_mail_mcp.service import MailService, _ensure_safe_attachment_source
 
 
 class FakeSender:
@@ -721,3 +723,30 @@ def test_send_draft_now_rejects_plain_smtp(tmp_path):
         raise AssertionError("expected plain SMTP to be rejected")
 
     assert sender.sent_ids == []
+
+
+def test_attachment_gate_rejects_sensitive_files(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("UBISAM_SMTP_PASSWORD=secret", encoding="utf-8")
+    pem_file = tmp_path / "server.pem"
+    pem_file.write_text("-----BEGIN PRIVATE KEY-----", encoding="utf-8")
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir()
+    ssh_file = ssh_dir / "config"
+    ssh_file.write_text("Host *", encoding="utf-8")
+    env_local = tmp_path / ".env.local"
+    env_local.write_text("X=1", encoding="utf-8")
+
+    for bad in (env_file, pem_file, ssh_file, env_local):
+        with pytest.raises(ValueError, match="refusing to attach"):
+            _ensure_safe_attachment_source(bad)
+
+
+def test_attachment_gate_allows_normal_files(tmp_path):
+    doc = tmp_path / "report.pdf"
+    doc.write_text("content", encoding="utf-8")
+    image = tmp_path / "logo.png"
+    image.write_bytes(b"\x89PNG\r\n")
+
+    _ensure_safe_attachment_source(doc)
+    _ensure_safe_attachment_source(image)

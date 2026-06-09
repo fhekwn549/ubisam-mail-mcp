@@ -247,7 +247,8 @@ def test_send_logs_smtp_steps_when_debug_enabled(monkeypatch):
     assert "smtp-debug connect mode=starttls host=smtp.example.com port=587" in log_output
     assert "smtp-debug starttls host=smtp.example.com servername=smtp.example.com" in log_output
     assert "smtp-debug auth method=plain username=user@example.com" in log_output
-    assert "smtp-debug send_message recipients=1 subject=subject" in log_output
+    assert "smtp-debug send_message recipients=1 subject_len=" in log_output
+    assert "subject=subject" not in log_output
 
 
 def test_send_formats_from_and_recipient_display_names(monkeypatch, tmp_path):

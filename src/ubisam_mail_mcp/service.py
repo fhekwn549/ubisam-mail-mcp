@@ -14,6 +14,35 @@ from .models import ClosingTemplate, DraftAttachment, GreetingTemplate, MessageD
 from .repository import DraftRepository
 
 
+# Files whose contents are credentials/secrets and must never be attached and
+# mailed out. attachment_paths/logo_image_path are caller-controlled and can be
+# driven by indirect prompt injection (e.g. text in a received message), so the
+# attachment gate refuses these before a draft can carry them off the machine.
+_DENY_ATTACHMENT_NAMES = {
+    ".env", ".netrc", ".pgpass", ".htpasswd", "known_hosts",
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "credentials",
+}
+_DENY_ATTACHMENT_SUFFIXES = {
+    ".pem", ".key", ".p12", ".pfx", ".pkcs12", ".keystore",
+    ".jks", ".ppk", ".asc", ".gpg", ".kdbx",
+}
+_DENY_PATH_PARTS = {".ssh", ".aws", ".gnupg", ".kube", ".gcloud", ".azure"}
+
+
+def _ensure_safe_attachment_source(path: Path) -> None:
+    resolved = path.resolve()
+    name = resolved.name.lower()
+    if name in _DENY_ATTACHMENT_NAMES or name.startswith(".env."):
+        raise ValueError(f"refusing to attach sensitive file: {resolved.name}")
+    if resolved.suffix.lower() in _DENY_ATTACHMENT_SUFFIXES:
+        raise ValueError(f"refusing to attach sensitive file type: {resolved.suffix}")
+    blocked = {part.lower() for part in resolved.parts} & _DENY_PATH_PARTS
+    if blocked:
+        raise ValueError(
+            f"refusing to attach file under sensitive directory: {sorted(blocked)[0]}"
+        )
+
+
 class MailSender(Protocol):
     def send(self, draft: MessageDraft) -> None:
         ...
@@ -697,6 +726,7 @@ class MailService:
             path = Path(raw_path).expanduser()
             if not path.is_file():
                 raise ValueError(f"attachment file not found: {path}")
+            _ensure_safe_attachment_source(path)
             content_type, _encoding = mimetypes.guess_type(path.name)
             attachments.append(
                 DraftAttachment(
@@ -716,6 +746,7 @@ class MailService:
         path = Path(logo_image_path).expanduser()
         if not path.is_file():
             raise ValueError(f"logo image file not found: {path}")
+        _ensure_safe_attachment_source(path)
         return str(path.resolve())
 
     def _resolve_from_name(self, from_name: str | None, *, profile: SignatureProfile | None) -> str:

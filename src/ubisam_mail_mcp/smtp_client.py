@@ -36,7 +36,7 @@ class SmtpMailSender:
                 _smtp_login(smtp, self._config.smtp_username, self._config.smtp_password, config=self._config)
                 _debug(
                     self._config,
-                    f"send_message recipients={len(recipients)} subject={draft.subject}",
+                    f"send_message recipients={len(recipients)} subject_len={len(draft.subject)}",
                 )
                 smtp.send_message(message, to_addrs=recipients)
             except Exception as exc:
@@ -63,7 +63,7 @@ class SmtpMailSender:
             _smtp_login(smtp, self._config.smtp_username, self._config.smtp_password, config=self._config)
             _debug(
                 self._config,
-                f"send_message recipients={len(recipients)} subject={draft.subject}",
+                f"send_message recipients={len(recipients)} subject_len={len(draft.subject)}",
             )
             smtp.send_message(message, to_addrs=recipients)
         except Exception as exc:
