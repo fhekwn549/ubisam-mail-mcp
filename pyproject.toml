@@ -13,6 +13,9 @@ authors = [
 ]
 dependencies = ["mcp>=1.2"]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.scripts]
 ubisam-mail-mcp = "ubisam_mail_mcp.server:main"
 ubisam-mail-mcp-setup = "ubisam_mail_mcp.setup_wizard:main"
